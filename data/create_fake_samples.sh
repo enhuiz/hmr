@@ -16,7 +16,7 @@ create_features() {
 
 cat_csv() {
     echo "id,$1"
-    seq -f "%g,$2" $3 $4
+    seq -f "%g,\"$2\"" $3 $4
 }
 
 create_annotations() {
