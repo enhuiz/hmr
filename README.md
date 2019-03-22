@@ -68,4 +68,6 @@ Both step 3 and step 4 may follow the following directory structure:
 ├── scripts  <- put your .py or .sh scripts, these scripts should be able to executable directly, e.g. `train_gan.sh`, `process_data.py`, etc.
 ```
 
-Feel free to modify this file.
+## Notes
+
+Feel free to modify this file :D.
