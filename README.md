@@ -4,7 +4,7 @@
 
 1. Download the data from [here](http://www.isical.ac.in/~crohme/ICFHR_package.zip) and unzip it into `data/ICFHR_PACKAGE` folder.
 
-2. Preprocess the data to generate a directory which has the following structure:
+2. Preprocess the data into `data/` to generate directories which has the following structure:
 
 ```bash
 ── ICFHR 
