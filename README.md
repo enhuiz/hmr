@@ -47,8 +47,13 @@ and the {printed,written} 190.png-199.png to `ICFHR/features/{printed,written}/t
 Note that the ids should be consistant, which means printed/train/0.png and written/train/0.png should be the SAME sample (i.e. the same math formular).
 
 
-3. Train a style transferer using written->printed pairs from both ICFHR and MNIST dataset, note that only samples in `train/` and `train.csv` should be used during training.
-
+3. Train a style transferer using written->printed pairs from both ICFHR and MNIST dataset, note that only samples in `train/` and `train.csv` should be used during training. 
 
 4. Train an encoder decoder network using ICFHR printed->annotaions pairs, note that only samples in `train/` and `train.csv` should be used during training.
 
+Both step 3 and step 4 may follow the following directory structure:
+
+```bash
+├── hmr      <- put your .py here, these scripts used as library, which are not executable directly, e.g. `data_utils.py`, `seq2seq.py`, etc.
+├── scripts  <- put your .py or .sh scripts, these scripts should be able to executable directly, e.g. `train_gan.sh`, `process_data.py`, etc.
+```
