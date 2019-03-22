@@ -2,9 +2,14 @@
 
 ## Steps
 
-1. Download the data from [here](http://www.isical.ac.in/~crohme/ICFHR_package.zip) and unzip it into `data/ICFHR_PACKAGE` folder.
+### 1. Download Data 
 
-2. Preprocess the data into `data/` to generate directories which has the following structure:
+Donwload ICFHR from [here](http://www.isical.ac.in/~crohme/ICFHR_package.zip) and put it into `data/raw/ICFHR/` folder.
+Donwload MNIST from [here](http://yann.lecun.com/exdb/mnist/) and put it into `data/raw/MNIST/` folder.
+
+### 2. Preprocess Data
+
+Preprocess the data into `data/` to generate directories which has the following structure:
 
 ```bash
 ── ICFHR 
@@ -47,9 +52,14 @@ and the {printed,written} 190.png-199.png to `ICFHR/features/{printed,written}/t
 Note that the ids should be consistant, which means printed/train/0.png and written/train/0.png should be the SAME sample (i.e. the same math formular).
 
 
-3. Train a style transferer using written->printed pairs from both ICFHR and MNIST dataset, note that only samples in `train/` and `train.csv` should be used during training. 
+### 3. Train Style Transfer  
 
-4. Train an encoder decoder network using ICFHR printed->annotaions pairs, note that only samples in `train/` and `train.csv` should be used during training.
+Train a style transferer using written->printed pairs from both ICFHR and MNIST dataset, note that only samples in `train/` and `train.csv` should be used during training. 
+
+### 4. Train Seq2seq Model 
+
+Train an encoder decoder network using ICFHR printed->annotaions pairs, note that only samples in `train/` and `train.csv` should be used during training.
+
 
 Both step 3 and step 4 may follow the following directory structure:
 
@@ -57,3 +67,5 @@ Both step 3 and step 4 may follow the following directory structure:
 ├── hmr      <- put your .py here, these scripts used as library, which are not executable directly, e.g. `data_utils.py`, `seq2seq.py`, etc.
 ├── scripts  <- put your .py or .sh scripts, these scripts should be able to executable directly, e.g. `train_gan.sh`, `process_data.py`, etc.
 ```
+
+Feel free to modify this file.
