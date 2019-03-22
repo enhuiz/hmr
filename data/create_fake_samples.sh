@@ -21,7 +21,7 @@ cat_csv() {
 
 create_annotations() {
     mkdir -p $1
-    cat_csv $2 $3 179 > $1/train.csv
+    cat_csv $2 $3 0 179 > $1/train.csv
     cat_csv $2 $3 180 189 > $1/dev.csv
     cat_csv $2 $3 190 199 > $1/test.csv
 }
