@@ -107,11 +107,13 @@ if [ $stage -le 3 ]; then
 fi
 
 if [ $stage -le 4 ]; then
-    echo "Tokenizing ..."
+    echo "Tokenizing & Creating Vocab ..."
 
     python3 scripts/data/tokenize_latex.py $dst/annotations/{train,tok_train}.csv
     python3 scripts/data/tokenize_latex.py $dst/annotations/{dev,tok_dev}.csv
     python3 scripts/data/tokenize_latex.py $dst/annotations/{test,tok_test}.csv
+
+    python3 scripts/data/build_vocab.py $dst/annotations/{tok_train.csv,vocab.csv}
 fi
 
 echo "done."
