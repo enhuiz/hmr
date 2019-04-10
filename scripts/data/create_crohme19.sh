@@ -42,13 +42,11 @@ if [ $stage -le 1 ]; then
     extract_math() {
         inkml=$1
         math=$(grep -m1 'truth' $inkml)
-        # remove prefix
         math=${math#*>}
-        # remove suffix
         math=${math%<*}
-        # remove $
         math=${math//$/}
-        echo $math
+        # &cmd; -> \cmd
+        echo $math | perl -pe 's/&(.+?);/\\\1 /g'
     }
 
     annotate_helper() {

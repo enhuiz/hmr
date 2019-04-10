@@ -14,7 +14,7 @@ fs.existsSync(args.outdir) || fs.mkdirSync(args.outdir);
 
 fs.createReadStream(args.csv)
     .pipe(csv.parse())
-    .pipe(csv.transform(data=>{
+    .pipe(csv.transform(data => {
         let [id, math] = data;
         return [id, {
             math: math,
@@ -22,23 +22,23 @@ fs.createReadStream(args.csv)
             svg: true,
         }];
     }))
-    .pipe(csv.transform(config=>{
+    .pipe(csv.transform(config => {
         let [id, options] = config;
         let outPath = path.join(args.outdir, id + '.png');
         if (!fs.existsSync(outPath)) {
-            mjAPI.typeset(options, result=>{
+            mjAPI.typeset(options, result => {
                 if (result.errors) {
-                    console.log("Render error: " + options.math);
+                    console.log("Render " + id + " error: " + options.math);
                 } else {
                     let buffer = Buffer.from(result.svg);
                     sharp(buffer, { density: 1000 })
                         .resize({
                             width: 300,
-                            height:300,
+                            height: 300,
                             fit: 'contain',
                             background: 'white',
                         })
-                        .flatten({background: 'white'})
+                        .flatten({ background: 'white' })
                         .toFile(outPath);
                 }
             });
