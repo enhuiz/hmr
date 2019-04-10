@@ -15,9 +15,9 @@ fs.existsSync(args.outdir) || fs.mkdirSync(args.outdir);
 fs.createReadStream(args.csv)
     .pipe(csv.parse())
     .pipe(csv.transform(data => {
-        let [id, math] = data;
+        let [id, latex] = data;
         return [id, {
-            math: math,
+            latex: latex,
             format: 'TeX',
             svg: true,
         }];
@@ -28,7 +28,7 @@ fs.createReadStream(args.csv)
         if (!fs.existsSync(outPath)) {
             mjAPI.typeset(options, result => {
                 if (result.errors) {
-                    console.log("Render " + id + " error: " + options.math);
+                    console.log("Render " + id + " error: " + options.latex);
                 } else {
                     let buffer = Buffer.from(result.svg);
                     sharp(buffer, { density: 1000 })

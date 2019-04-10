@@ -39,14 +39,14 @@ if [ $stage -le 0 ]; then
 fi
 
 if [ $stage -le 1 ]; then
-    extract_math() {
+    extract_latex() {
         inkml=$1
-        math=$(grep -m1 'truth' $inkml)
-        math=${math#*>}
-        math=${math%<*}
-        math=${math//$/}
+        latex=$(grep -m1 'truth' $inkml)
+        latex=${latex#*>}
+        latex=${latex%<*}
+        latex=${latex//$/}
         # &cmd; -> \cmd
-        echo $math | perl -pe 's/&(.+?);/\\\1 /g'
+        echo $latex | perl -pe 's/&(.+?);/\\\1 /g'
     }
 
     annotate_helper() {
@@ -54,9 +54,9 @@ if [ $stage -le 1 ]; then
         local dst=$2
 
         id=$(basename $src .inkml)
-        math=$(extract_math $src)
+        latex=$(extract_latex $src)
 
-        echo \"$id\",\"$math\" >>$dst
+        echo \"$id\",\"$latex\" >>$dst
     }
 
     annotate() {
@@ -101,9 +101,17 @@ if [ $stage -le 3 ]; then
     pdir=$dst/features/printed
     mkdir -p $pdir
 
-    node scripts/data/math2png.js $dst/annotations/train.csv $pdir/train
-    node scripts/data/math2png.js $dst/annotations/dev.csv $pdir/dev
-    node scripts/data/math2png.js $dst/annotations/test.csv $pdir/test
+    node scripts/data/latex2png.js $dst/annotations/train.csv $pdir/train
+    node scripts/data/latex2png.js $dst/annotations/dev.csv $pdir/dev
+    node scripts/data/latex2png.js $dst/annotations/test.csv $pdir/test
+fi
+
+if [ $stage -le 4 ]; then
+    echo "Tokenizing ..."
+
+    python3 scripts/data/tokenize_latex.py $dst/annotations/{train,tok_train}.csv
+    python3 scripts/data/tokenize_latex.py $dst/annotations/{dev,tok_dev}.csv
+    python3 scripts/data/tokenize_latex.py $dst/annotations/{test,tok_test}.csv
 fi
 
 echo "done."
