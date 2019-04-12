@@ -3,6 +3,9 @@ data/*
 .DS_Store
 node_modules
 __pycache__
-
+exp
 .eslintrc.js
 .vscode
+*.png
+*.svg
+ipynb

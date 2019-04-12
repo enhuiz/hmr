@@ -82,7 +82,17 @@ if [ $stage -le 1 ]; then
 fi
 
 if [ $stage -le 2 ]; then
-    echo "Rendering stroke ..."
+    echo "Tokenizing & Creating Vocab ..."
+
+    python3 scripts/data/tokenize_latex.py $dst/annotations/{train,tok_train}.csv
+    python3 scripts/data/tokenize_latex.py $dst/annotations/{dev,tok_dev}.csv
+    python3 scripts/data/tokenize_latex.py $dst/annotations/{test,tok_test}.csv
+
+    python3 scripts/data/build_vocab.py $dst/annotations/{tok_train.csv,vocab.csv}
+fi
+
+if [ $stage -le 3 ]; then
+    echo "Rendering stroke (written) ..."
     cd $srcdir/Task2_offlineRec/
     ./ImgGenerator
     cd - 1>/dev/null
@@ -95,8 +105,8 @@ if [ $stage -le 2 ]; then
     find $srcdir/Task2_offlineRec/ -path "*/test/*.png" -exec cp {} $wdir/test/ \;
 fi
 
-if [ $stage -le 3 ]; then
-    echo "Rendering latex ..."
+if [ $stage -le 4 ]; then
+    echo "Rendering latex (printed) ..."
 
     pdir=$dst/features/printed
     mkdir -p $pdir
@@ -104,16 +114,6 @@ if [ $stage -le 3 ]; then
     node scripts/data/latex2png.js $dst/annotations/train.csv $pdir/train
     node scripts/data/latex2png.js $dst/annotations/dev.csv $pdir/dev
     node scripts/data/latex2png.js $dst/annotations/test.csv $pdir/test
-fi
-
-if [ $stage -le 4 ]; then
-    echo "Tokenizing & Creating Vocab ..."
-
-    python3 scripts/data/tokenize_latex.py $dst/annotations/{train,tok_train}.csv
-    python3 scripts/data/tokenize_latex.py $dst/annotations/{dev,tok_dev}.csv
-    python3 scripts/data/tokenize_latex.py $dst/annotations/{test,tok_test}.csv
-
-    python3 scripts/data/build_vocab.py $dst/annotations/{tok_train.csv,vocab.csv}
 fi
 
 echo "done."

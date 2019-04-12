@@ -75,16 +75,21 @@ class Vocab(object):
         return len(self.s2l) + 1  # unk
 
 
-class ICFHRDataset(Dataset):
-    def __init__(self, data_dir, typ, transform=None, pad_idx=2333):
+class MathDataset(Dataset):
+    def __init__(self, data_dir, typ, transform=None, pad_idx=2333, paired=True):
         self.vocab = Vocab(data_dir)
+        self.paired = paired
+        self.pad_idx = pad_idx
+
         corpus = load_corpus(data_dir, typ)
         self.max_len = max(corpus['len'])
+        if self.paired:
+            corpus['printed'] = corpus['printed'].sample(frac=1).values
         self.samples = corpus.to_dict('record')
-        self.pad_idx = 2333
 
         if transform is None:
             self.transform = transforms.Compose([
+                transforms.Resize((224, 224)),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [1])
             ])
@@ -98,30 +103,22 @@ class ICFHRDataset(Dataset):
             return img.convert('L')
 
     def __getitem__(self, idx):
-        sample = self.samples[idx]
-        label = self.vocab.latex2labels(sample['latex'])
+        sample = dict(self.samples[idx])
 
-        # loading
         printed = self.transform(self.load_pil(sample['printed']))
         written = self.transform(self.load_pil(sample['written']))
 
-        # padding
-        label = label + [self.pad_idx] * (self.max_len - len(label))
+        if self.paired:
+            # only paired data have label
+            latex = sample['latex']
+            label = self.vocab.latex2labels(latex)
+            label = label + [self.pad_idx] * (self.max_len - len(label))
+            sample['label'] = np.array(label)
+            sample['latex'] = ' '.join(latex)
 
         sample['printed'] = printed
         sample['written'] = written
-        sample['label'] = np.array(label)
-        sample['latex'] = ' '.join(sample['latex'])
-
         return sample
 
     def __len__(self):
         return len(self.samples)
-
-
-if __name__ == "__main__":
-    dataset = ICFHRDataset('data/ICFHR', 'train')
-    dl = DataLoader(dataset, batch_size=36)
-    for d in dl:
-        print(d)
-        break
