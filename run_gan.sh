@@ -5,19 +5,37 @@ device=$1
 [ -z $device ] && device=cpu
 [ -z $stage ] && stage=0
 
-model=dilated_resnet18_upernet
-data_dir=data/ICFHR/
-out_dir=exp/gan2/
-batch_size=2
-epochs=30
-lr=1e-5
+name=cyclegan
 mean=0.5
+
+# train on mnist
+
+lr=1e-4
+batch_size=8
+epochs=10
 
 python3 -u scripts/train_gan.py \
     --device $device \
-    --data-dir $data_dir \
+    --data-dir data/mnist \
     --batch-size $batch_size \
     --epochs $epochs \
-    --out-dir $out_dir \
+    --name $name/mnist \
+    --lr $lr \
+    --mean "$mean" || exit 1
+
+# train on crohme
+
+lr=1e-4
+epochs=10
+batch_size=4
+model=$(ls -1v checkpoints/$name/mnist/*.pth | tail -1)
+
+python3 -u scripts/train_gan.py \
+    --device $device \
+    --model $model \
+    --data-dir data/crohme \
+    --batch-size $batch_size \
+    --epochs $epochs \
+    --name $name/crohme \
     --lr $lr \
     --mean "$mean" || exit 1

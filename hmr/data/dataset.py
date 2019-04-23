@@ -8,12 +8,6 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
 
-def load_symbol_list(s):
-    s = eval(s)
-    s = list(map(str, s))
-    return s
-
-
 def load_corpus(data_dir, typ):
     path = os.path.join(data_dir, 'annotations', 'tok_{}.csv'.format(typ))
     df = pd.read_csv(path)
@@ -34,7 +28,7 @@ def load_corpus(data_dir, typ):
 
     df = df[existence == True]
 
-    df['latex'] = df['latex'].apply(load_symbol_list)
+    df['latex'] = df['latex'].apply(lambda x: str(x).split(' '))
     df['len'] = df['latex'].apply(len)
 
     return df

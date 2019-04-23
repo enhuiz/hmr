@@ -9,3 +9,5 @@ exp
 *.png
 *.svg
 ipynb
+checkpoints/
+runs/

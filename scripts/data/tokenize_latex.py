@@ -50,7 +50,7 @@ def main():
     args = get_args()
     try:
         df = pd.read_csv(args.in_csv, header=None)
-        df[1] = df[1].apply(tokenize)
+        df[1] = df[1].apply(lambda x: ' '.join(tokenize(x)))
         df.to_csv(args.out_csv, index=None, header=None)
     except pd.errors.EmptyDataError as e:
         print('Warning: {} is empty!'.format(args.in_csv))

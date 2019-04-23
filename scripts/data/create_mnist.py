@@ -11,11 +11,6 @@ from PIL import Image, ImageOps
 
 from tokenize_latex import tokenize
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-from hmr.data.render import latex2png
-
-
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_dir')
@@ -60,7 +55,7 @@ def create(data, out_dir, typ):
         pairs = []
         for i in tqdm.tqdm(range(len(data)), total=len(data)):
             id_ = '{}_{}'.format(typ, i)
-            annotation = tokenize(str(data[i][1]))
+            annotation = ' '.join(tokenize(str(data[i][1])))
             pairs.append([id_, annotation])
         df = pd.DataFrame(pairs)
         df.to_csv(path, index=None, header=None)
@@ -73,9 +68,16 @@ def create(data, out_dir, typ):
         os.system('node scripts/data/latex2png.js {} {} '
                   '--size 28 28 --pad 0'.format(csv_path, printed_dir))
 
+    def create_vocab():
+        print('Creating vocab')
+        path = os.path.join(out_dir, 'annotations', '{}.csv'.format('vocab'))
+        with open(path, 'w') as f:
+            f.write('\n'.join(map(str, range(10))))
+
     create_written()
     create_annotation()
     create_tok_annotation()
+    create_vocab()
     create_printed()  # must be done after annotation
 
 
