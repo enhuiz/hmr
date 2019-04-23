@@ -5,19 +5,21 @@ stage=0
 
 . ./scripts/utils/parse_options.sh
 
-if [ $# != 2 ]; then
-    echo "Usage: $0 <src> <dst>"
+if [ $# != 1 ]; then
+    echo "Usage: $0 <dst>"
     echo "main options (for others, see top of script file)"
     echo "  --stage "
     exit 1
 fi
 
-src=$1
-dst=$2
-
+dst=$1
+src=$dst/Task1_and_Task2.zip
 srcdir=${src%.zip}/Task1_and_Task2/
 
-if [ $stage -le 0 ]; then
+if [ $stage == 0 ]; then
+    mkdir -p $dst
+    wget https://www.cs.rit.edu/~crohme2019/downloads/Task1_and_Task2.zip -O $src
+
     inflat() {
         local src=$1
         echo "Inflating $src"
@@ -38,7 +40,7 @@ if [ $stage -le 0 ]; then
     done
 fi
 
-if [ $stage -le 1 ]; then
+if [ $stage == 1 ]; then
     extract_latex() {
         inkml=$1
         latex=$(grep -m1 'truth' $inkml)
@@ -81,7 +83,7 @@ if [ $stage -le 1 ]; then
     annotate Test $dst/annotations/test.csv
 fi
 
-if [ $stage -le 2 ]; then
+if [ $stage == 2 ]; then
     echo "Tokenizing & Creating Vocab ..."
 
     python3 scripts/data/tokenize_latex.py $dst/annotations/{train,tok_train}.csv
@@ -91,7 +93,7 @@ if [ $stage -le 2 ]; then
     python3 scripts/data/build_vocab.py $dst/annotations/{tok_train.csv,vocab.csv}
 fi
 
-if [ $stage -le 3 ]; then
+if [ $stage == 3 ]; then
     echo "Rendering stroke (written) ..."
     cd $srcdir/Task2_offlineRec/
     ./ImgGenerator
@@ -105,7 +107,7 @@ if [ $stage -le 3 ]; then
     find $srcdir/Task2_offlineRec/ -path "*/test/*.png" -exec cp {} $wdir/test/ \;
 fi
 
-if [ $stage -le 4 ]; then
+if [ $stage == 4 ]; then
     echo "Rendering latex (printed) ..."
 
     pdir=$dst/features/printed
