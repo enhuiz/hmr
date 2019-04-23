@@ -136,6 +136,7 @@ def train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts):
 
 def dump_config(opts):
     config_path = os.path.join('checkpoints', opts.name, 'config.json')
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
     with open(config_path, 'w') as f:
         json.dump(vars(opts), f)
 
