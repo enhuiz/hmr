@@ -82,32 +82,31 @@ def train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts):
             d_real_loss.backward()
 
             # Train with fake images
-            d_optimizer.zero_grad()
             D_X_loss = criterion(outputs['fake_X_score'], zeros)
             D_Y_loss = criterion(outputs['fake_Y_score'], zeros)
             d_fake_loss = D_X_loss + D_Y_loss
             d_fake_loss.backward()
 
             d_optimizer.step()
+            d_optimizer.zero_grad()
 
             # Train G
             outputs = model(real_X, real_Y, is_g=True)
 
             # Train with Y--X-->Y CYCLE
-            g_optimizer.zero_grad()
             g_loss = criterion(outputs['fake_X_score'], ones)
             cycle_consistency_loss = criterion(outputs['rec_Y'], real_Y)
             g_loss += cycle_consistency_loss
             g_loss.backward()
 
             # Train with X--Y-->X CYCLE
-            g_optimizer.zero_grad()
             g_loss = criterion(outputs['fake_Y_score'], ones)
             cycle_consistency_loss = criterion(outputs['rec_X'], real_X)
             g_loss += cycle_consistency_loss
             g_loss.backward()
 
             g_optimizer.step()
+            g_optimizer.zero_grad()
 
             iterations += 1
             pbar.set_description('Epoch [{}/{}], d_real_loss: {:6.4f} | d_Y_loss: {:6.4f} | d_X_loss: {:6.4f} | '
