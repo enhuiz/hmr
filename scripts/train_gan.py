@@ -127,7 +127,7 @@ def train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts):
             if step % opts.sample_every == 0:
                 if sample_to_visual is None:
                     sample_to_visual = sample
-                visualize(model, sample, writer, iterations, opts.device)
+                visualize(model, sample_to_visual, writer, iterations, opts.device)
 
         path = os.path.join('checkpoints', opts.name,
                             '{}.pth'.format(epoch + 1))
