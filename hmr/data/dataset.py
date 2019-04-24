@@ -77,7 +77,8 @@ class MathDataset(Dataset):
 
         corpus = load_corpus(data_dir, typ)
         self.max_len = max(corpus['len'])
-        if self.paired:
+        if not self.paired:
+            # shuffle
             corpus['printed'] = corpus['printed'].sample(frac=1).values
         self.samples = corpus.to_dict('record')
 
