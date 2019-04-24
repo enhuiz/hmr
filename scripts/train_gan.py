@@ -19,7 +19,7 @@ from tensorboardX import SummaryWriter
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr.data.dataset import MathDataset
-from hmr.models.cycle_gan import CycleGAN
+from hmr.models.cyclegan import UPerNetCycleGAN, NaiveCycleGAN
 
 
 def get_opts():
@@ -39,6 +39,7 @@ def get_opts():
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--init_zero_weights', type=bool, default=True)
+    parser.add_argument('--upernet', type=bool, default=False)
     opts = parser.parse_args()
     return opts
 
@@ -161,7 +162,10 @@ def load_model(opts):
         epoch0 = get_epoch_num(ckpt)
         print('Checkpoint {} loaded.'.format(ckpt))
     elif opts.model is None:
-        model = CycleGAN(opts)
+        if opts.upernet:
+            model = UPerNetCycleGAN(opts)
+        else:
+            model = NaiveCycleGAN(opts)
         print('Model created.')
     else:
         model = torch.load(opts.model)
