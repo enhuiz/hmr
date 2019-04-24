@@ -4,7 +4,7 @@ device=$1
 name=$2
 
 [ -z $device ] && device=cpu
-[ -z $stage ] && name=cyclegan
+[ -z $name ] && name=cyclegan
 
 name=cyclegan
 mean=0.5
