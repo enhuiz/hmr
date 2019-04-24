@@ -20,6 +20,7 @@ python3 -u scripts/train_gan.py \
     --batch-size $batch_size \
     --epochs $epochs \
     --name $name/mnist \
+    --upernet true\
     --lr $lr \
     --mean "$mean" || exit 1
 

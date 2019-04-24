@@ -145,13 +145,13 @@ class UPerNetGenerator(nn.Module):
     def __init__(self, conv_dim):
         super(UPerNetGenerator, self).__init__()
 
-        self.encoder = resnet18(dilation=True)
-        self.decoder = UPerNet(fc_dim=512, pool_scales=(2, 3, 6),
-                               fpn_inplanes=(128, 256, 512), fpn_dim=conv_dim)
+        self.encoder = resnet18()
+        self.decoder = UPerNet(fc_dim=128, pool_scales=(1, 2, 3, 6),
+                               fpn_inplanes=(16, 32, 64, 128), fpn_dim=conv_dim)
 
     def forward(self, x):
         out = self.encoder(x)
-        out = self.decoder(out[-3:])
+        out = self.decoder(out)
         out = F.interpolate(out, (224, 224),
                             mode='bilinear',
                             align_corners=True)

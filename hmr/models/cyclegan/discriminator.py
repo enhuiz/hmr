@@ -38,8 +38,8 @@ class NaiveDiscriminator(nn.Module):
 class ResNetDiscriminator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.resnet = resnet18(dilation=True)
-        self.fc = nn.Linear(401408, 1)
+        self.resnet = resnet18()
+        self.fc = nn.Linear(6272, 1)
 
     def forward(self, x):
         out = self.resnet(x)
