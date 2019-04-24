@@ -153,6 +153,7 @@ def get_epoch_num(path):
 def load_model(opts):
     ckpts = glob.glob(os.path.join('checkpoints', opts.name, '*.pth'))
     ckpts = [ckpt for ckpt in ckpts if get_epoch_num(ckpt) is not None]
+    epoch0 = 0
 
     if len(ckpts) > 0 and opts.continued:
         ckpt = max(ckpts, key=get_epoch_num)  # latest one
@@ -161,7 +162,6 @@ def load_model(opts):
         print('Checkpoint {} loaded.'.format(ckpt))
     elif opts.model is None:
         model = CycleGAN(opts)
-        epoch0 = 0
         print('Model created.')
     else:
         model = torch.load(opts.model)
