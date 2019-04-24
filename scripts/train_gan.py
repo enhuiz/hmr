@@ -102,36 +102,34 @@ def train_gan(model, g_optimizer, d_optimizer, dl, opts):
             g_optimizer.zero_grad()
             outputs = model(real_X, real_Y, is_g=True)
 
-            # Train with X--Y-->X CYCLE
             G_X_loss = bcewl_criterion(outputs['fake_Y_score'], ones)
-            cycle_consistency_loss = l1_criterion(outputs['rec_X'], real_X)
-            G_X_loss += cycle_consistency_loss
-
-            # Train with Y--X-->Y CYCLE
             G_Y_loss = bcewl_criterion(outputs['fake_X_score'], ones)
-            cycle_consistency_loss = l1_criterion(outputs['rec_Y'], real_Y)
-            G_Y_loss += cycle_consistency_loss
+            g_fake_loss = G_X_loss + G_Y_loss
 
-            g_loss = G_X_loss + G_Y_loss
+            G_X_cycle_loss = l1_criterion(outputs['rec_X'], real_X)
+            G_Y_cycle_loss = l1_criterion(outputs['rec_Y'], real_Y)
+            g_cycle_loss = G_X_cycle_loss + G_Y_cycle_loss
+
+            g_loss = g_fake_loss + g_cycle_loss
             g_loss.backward()
 
             g_optimizer.step()
 
             iterations += 1
-            pbar.set_description('Epoch [{}/{}], d_real_loss: {:6.4f} | d_Y_loss: {:6.4f} | d_X_loss: {:6.4f} | '
-                                 'd_fake_loss: {:6.4f} | g_loss: {:6.4f}'.format(epoch,
-                                                                                 opts.epochs,
-                                                                                 d_real_loss.item(),
-                                                                                 D_Y_loss.item(),
-                                                                                 D_X_loss.item(),
-                                                                                 d_fake_loss.item(),
-                                                                                 g_loss.item()))
+            pbar.set_description('Epoch [{}/{}], '
+                                 'd_real_loss: {:6.4f} | '
+                                 'd_fake_loss: {:6.4f} | '
+                                 'g_fake_loss: {:6.4f} | '
+                                 'g_cycle_loss: {:6.4f}'.format(epoch, opts.epochs,
+                                                                d_real_loss.item(),
+                                                                d_fake_loss.item(),
+                                                                g_fake_loss.item(),
+                                                                g_cycle_loss.item()))
 
             writer.add_scalar('loss/d_real', d_real_loss.item(), iterations)
-            writer.add_scalar('loss/D_Y', D_Y_loss.item(), iterations)
-            writer.add_scalar('loss/D_X', D_X_loss.item(), iterations)
             writer.add_scalar('loss/d_fake', d_fake_loss.item(), iterations)
-            writer.add_scalar('loss/g', g_loss.item(), iterations)
+            writer.add_scalar('loss/g_fake', g_fake_loss.item(), iterations)
+            writer.add_scalar('loss/g_cycle', g_cycle_loss.item(), iterations)
 
             if step % opts.sample_every == 0:
                 if sample_to_visual is None:
