@@ -6,6 +6,7 @@ name=$2
 [ -z $device ] && device=cpu
 [ -z $name ] && name=cyclegan
 
+model=UPerNetCycleGAN #UNetCycleGAN
 name=cyclegan
 mean=0.5
 
@@ -21,7 +22,7 @@ python3 -u scripts/train_gan.py \
     --batch-size $batch_size \
     --epochs $epochs \
     --name $name/mnist \
-    --upernet true\
+    --model $model \
     --lr $lr \
     --mean "$mean" || exit 1
 
@@ -39,6 +40,6 @@ python3 -u scripts/train_gan.py \
     --batch-size $batch_size \
     --epochs $epochs \
     --name $name/crohme \
-    --upernet true\
+    --model $model \
     --lr $lr \
     --mean "$mean" || exit 1

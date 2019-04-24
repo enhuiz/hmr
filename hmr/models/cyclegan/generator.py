@@ -3,63 +3,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-from .utils import conv, deconv, conv3x3, conv3x3_bn_relu, ResnetBlock, resnet18
-
-
-class NaiveGenerator(nn.Module):
-    """Defines the architecture of the generator network.
-       Note: Both generators G_XtoY and G_YtoX have the same architecture in this assignment.
-    """
-
-    def __init__(self, conv_dim, init_zero_weights):
-        super(NaiveGenerator, self).__init__()
-
-        ###########################################
-        ##   FILL THIS IN: CREATE ARCHITECTURE   ##
-        ###########################################
-
-        # 1. Define the encoder part of the generator (that extracts features from the input image)
-        self.conv1 = conv(1, conv_dim // 2, 4,
-                          init_zero_weights=init_zero_weights)
-        self.conv2 = conv(conv_dim // 2, conv_dim, 4,
-                          init_zero_weights=init_zero_weights)
-
-        # 2. Define the transformation part of the generator
-        self.resnet_block = ResnetBlock(conv_dim)
-
-        # 3. Define the decoder part of the generator (that builds up the output image from features)
-        self.deconv1 = deconv(conv_dim, conv_dim // 2, 4)
-        self.deconv2 = deconv(conv_dim // 2, 1, 4, batch_norm=False)
-
-    def forward(self, x):
-        """Generates an image conditioned on an input image.
-
-            Input
-            -----
-                x: BS x 1 x 32 x 32
-
-            Output
-            ------
-                out: BS x 1 x 32 x 32
-        """
-
-        out = F.relu(self.conv1(x))
-        out = F.relu(self.conv2(out))
-
-        out = F.relu(self.resnet_block(out))
-
-        out = F.relu(self.deconv1(out))
-        out = torch.tanh(self.deconv2(out))
-
-        return out
+from .utils import conv, deconv, conv3x3, conv3x3_bn_relu
+from .discriminator import ResNet
 
 
-class UPerNet(nn.Module):
+class UPerNetDecoder(nn.Module):
     def __init__(self, num_class=1, fc_dim=256,
                  pool_scales=(1, 2, 3, 6),
                  fpn_inplanes=(16, 32, 64, 128), fpn_dim=256):
-        super(UPerNet, self).__init__()
+        super().__init__()
 
         # PPM Module
         self.ppm_pooling = []
@@ -141,18 +93,78 @@ class UPerNet(nn.Module):
         return x
 
 
-class UPerNetGenerator(nn.Module):
+class UPerNet(nn.Module):
     def __init__(self, conv_dim):
-        super(UPerNetGenerator, self).__init__()
-
-        self.encoder = resnet18()
-        self.decoder = UPerNet(fc_dim=128, pool_scales=(1, 2, 3, 6),
-                               fpn_inplanes=(16, 32, 64, 128), fpn_dim=conv_dim)
+        super().__init__()
+        self.encoder = ResNet(conv_dim)
+        self.decoder = UPerNetDecoder(fc_dim=conv_dim, pool_scales=(1, 2, 3, 6),
+                                      fpn_inplanes=(conv_dim // 8, conv_dim // 4, conv_dim // 2, conv_dim), fpn_dim=conv_dim)
 
     def forward(self, x):
-        out = self.encoder(x)
+        out = self.encoder(x, output_cls=False)
         out = self.decoder(out)
         out = F.interpolate(out, (224, 224),
                             mode='bilinear',
                             align_corners=True)
+        return out
+
+
+def double_conv(in_channels, out_channels):
+    return nn.Sequential(
+        nn.Conv2d(in_channels, out_channels, 3, padding=1),
+        nn.ReLU(inplace=True),
+        nn.Conv2d(out_channels, out_channels, 3, padding=1),
+        nn.ReLU(inplace=True)
+    )
+
+
+class UNet(nn.Module):
+    def __init__(self, conv_dim, n_class=1):
+        super().__init__()
+
+        self.dconv_down1 = double_conv(1, conv_dim // 8)
+        self.dconv_down2 = double_conv(conv_dim // 8, conv_dim // 4)
+        self.dconv_down3 = double_conv(conv_dim // 4, conv_dim // 2)
+        self.dconv_down4 = double_conv(conv_dim // 2, conv_dim)
+
+        self.maxpool = nn.MaxPool2d(2)
+        self.upsample = lambda x: F.interpolate(
+            x, scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.dconv_up3 = double_conv(
+            conv_dim // 2 + conv_dim, conv_dim // 2)
+        self.dconv_up2 = double_conv(
+            conv_dim // 4 + conv_dim // 2, conv_dim // 4)
+        self.dconv_up1 = double_conv(
+            conv_dim // 4 + conv_dim // 8, conv_dim // 8)
+
+        self.conv_last = nn.Conv2d(conv_dim // 8, n_class, 1)
+
+    def forward(self, x):
+        conv1 = self.dconv_down1(x)
+        x = self.maxpool(conv1)
+
+        conv2 = self.dconv_down2(x)
+        x = self.maxpool(conv2)
+
+        conv3 = self.dconv_down3(x)
+        x = self.maxpool(conv3)
+
+        x = self.dconv_down4(x)
+
+        x = self.upsample(x)
+        x = torch.cat([x, conv3], dim=1)
+
+        x = self.dconv_up3(x)
+        x = self.upsample(x)
+        x = torch.cat([x, conv2], dim=1)
+
+        x = self.dconv_up2(x)
+        x = self.upsample(x)
+        x = torch.cat([x, conv1], dim=1)
+
+        x = self.dconv_up1(x)
+
+        out = self.conv_last(x)
+
         return out

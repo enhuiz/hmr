@@ -19,14 +19,15 @@ from tensorboardX import SummaryWriter
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr.data.dataset import MathDataset
-from hmr.models.cyclegan import UPerNetCycleGAN, NaiveCycleGAN
+from hmr.models import cyclegan
 
 
 def get_opts():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir')
     parser.add_argument('--name', default='cyclegan')
-    parser.add_argument('--model', default=None)
+    parser.add_argument('--model', default='UNetCycleGAN',
+                        help='Either a model class name or a ckpt path')
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--epochs', type=int, default=4)
     parser.add_argument('--lr', type=float, default=5e-3)
@@ -34,12 +35,11 @@ def get_opts():
     parser.add_argument('--mean', type=float, nargs=1, default=[0.5])
     parser.add_argument('--continued', type=bool, default=True)
     parser.add_argument('--sample-every', type=int, default=10)
-    parser.add_argument('--g_conv_dim', type=int, default=64)
-    parser.add_argument('--d_conv_dim', type=int, default=64)
+    parser.add_argument('--g_conv_dim', type=int, default=128)
+    parser.add_argument('--d_conv_dim', type=int, default=128)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--init_zero_weights', type=bool, default=True)
-    parser.add_argument('--upernet', type=bool, default=False)
     opts = parser.parse_args()
     return opts
 
@@ -157,15 +157,12 @@ def load_model(opts):
         model = torch.load(ckpt)
         epoch0 = get_epoch_num(ckpt)
         print('Checkpoint {} loaded.'.format(ckpt))
-    elif opts.model is None:
-        if opts.upernet:
-            model = UPerNetCycleGAN(opts)
-        else:
-            model = NaiveCycleGAN(opts)
-        print('Model created.')
-    else:
+    elif os.path.exists(opts.model):
         model = torch.load(opts.model)
         print('Model {} loaded.'.format(opts.model))
+    else:
+        model = cyclegan.get_model(opts)
+        print('Model created.')
 
     return model, epoch0
 
