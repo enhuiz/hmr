@@ -49,10 +49,10 @@ class BasicBlock(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class ResNetD(nn.Module):
     def __init__(self, conv_dim, block=BasicBlock, layers=[2, 2, 2, 2], num_classes=1,
                  groups=1, width_per_group=64, norm_layer=None):
-        super(ResNet, self).__init__()
+        super(ResNetD, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
 

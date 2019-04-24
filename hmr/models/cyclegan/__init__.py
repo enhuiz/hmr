@@ -2,9 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-from .generator import UPerNet
-from .discriminator import ResNet
+from .generator import ResnetG, UPerNetG, UNetG
+from .discriminator import ResNetD
 
 
 class CycleGAN(nn.Module):
@@ -55,26 +54,33 @@ class CycleGAN(nn.Module):
 class UPerNetCycleGAN(CycleGAN):
     def __init__(self, opts):
         super().__init__()
-        self.G_XtoY = generator.UPerNet(opts.g_conv_dim)
-        self.G_YtoX = generator.UPerNet(opts.g_conv_dim)
-        self.D_X = discriminator.ResNet(opts.d_conv_dim)
-        self.D_Y = discriminator.ResNet(opts.d_conv_dim)
+        self.G_XtoY = UPerNetG(opts.g_conv_dim)
+        self.G_YtoX = UPerNetG(opts.g_conv_dim)
+        self.D_X = ResNetD(opts.d_conv_dim)
+        self.D_Y = ResNetD(opts.d_conv_dim)
 
 
 class UNetCycleGAN(CycleGAN):
     def __init__(self, opts):
         super().__init__()
-        self.G_XtoY = generator.UNet(opts.g_conv_dim)
-        self.G_YtoX = generator.UNet(opts.g_conv_dim)
-        self.D_X = discriminator.ResNet(opts.d_conv_dim)
-        self.D_Y = discriminator.ResNet(opts.d_conv_dim)
+        self.G_XtoY = UNetG(opts.g_conv_dim)
+        self.G_YtoX = UNetG(opts.g_conv_dim)
+        self.D_X = ResNetD(opts.d_conv_dim)
+        self.D_Y = ResNetD(opts.d_conv_dim)
+
+
+class ResNetCycleGAN(CycleGAN):
+    def __init__(self, opts):
+        super().__init__()
+        self.G_XtoY = ResnetG(ngf=opts.g_conv_dim)
+        self.G_YtoX = ResnetG(ngf=opts.g_conv_dim)
+        self.D_X = ResNetD(opts.d_conv_dim)
+        self.D_Y = ResNetD(opts.d_conv_dim)
 
 
 def get_model(opts):
-    model_dict = {
-        'UPerNetCycleGAN': UPerNetCycleGAN,
-        'UNetCycleGAN': UNetCycleGAN,
-    }
+    model_list = [UPerNetCycleGAN, UNetCycleGAN, ResNetCycleGAN]
+    model_dict = {model.__name__: model for model in model_list}
     model = None
     if opts.model in model_dict:
         model = model_dict[opts.model](opts)

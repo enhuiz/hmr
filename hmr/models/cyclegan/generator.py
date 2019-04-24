@@ -1,17 +1,22 @@
+import functools
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .utils import conv, deconv, conv3x3, conv3x3_bn_relu
-from .discriminator import ResNet
+from .utils import conv, deconv, conv3x3, conv3x3_bn_relu, ResnetBlock
+from .discriminator import ResNetD
 
 
-class UPerNetDecoder(nn.Module):
-    def __init__(self, num_class=1, fc_dim=256,
-                 pool_scales=(1, 2, 3, 6),
-                 fpn_inplanes=(16, 32, 64, 128), fpn_dim=256):
+class UPerNetG(nn.Module):
+    def __init__(self, conv_dim, num_class=1, pool_scales=(1, 2, 3, 6)):
         super().__init__()
+
+        self.encoder = ResNetD(conv_dim)
+
+        fc_dim = conv_dim
+        fpn_inplanes = (conv_dim // 8, conv_dim // 4, conv_dim // 2, conv_dim)
+        fpn_dim = conv_dim
 
         # PPM Module
         self.ppm_pooling = []
@@ -51,7 +56,9 @@ class UPerNetDecoder(nn.Module):
             nn.Conv2d(fpn_dim, num_class, kernel_size=1)
         )
 
-    def forward(self, conv_out):
+    def forward(self, x):
+        input_shape = x.shape[-2:]
+        conv_out = self.encoder(x, output_cls=False)
         conv5 = conv_out[-1]
 
         input_size = conv5.size()
@@ -89,24 +96,11 @@ class UPerNetDecoder(nn.Module):
 
         fusion_out = torch.cat(fusion_list, 1)
         x = self.conv_last(fusion_out)
+        x = F.interpolate(x, input_shape,
+                          mode='bilinear',
+                          align_corners=True)
 
         return x
-
-
-class UPerNet(nn.Module):
-    def __init__(self, conv_dim):
-        super().__init__()
-        self.encoder = ResNet(conv_dim)
-        self.decoder = UPerNetDecoder(fc_dim=conv_dim, pool_scales=(1, 2, 3, 6),
-                                      fpn_inplanes=(conv_dim // 8, conv_dim // 4, conv_dim // 2, conv_dim), fpn_dim=conv_dim)
-
-    def forward(self, x):
-        out = self.encoder(x, output_cls=False)
-        out = self.decoder(out)
-        out = F.interpolate(out, (224, 224),
-                            mode='bilinear',
-                            align_corners=True)
-        return out
 
 
 def double_conv(in_channels, out_channels):
@@ -118,7 +112,7 @@ def double_conv(in_channels, out_channels):
     )
 
 
-class UNet(nn.Module):
+class UNetG(nn.Module):
     def __init__(self, conv_dim, n_class=1):
         super().__init__()
 
@@ -168,3 +162,64 @@ class UNet(nn.Module):
         out = self.conv_last(x)
 
         return out
+
+
+class ResnetG(nn.Module):
+    """Resnet-based generator that consists of Resnet blocks between a few downsampling/upsampling operations.
+    We adapt Torch code and idea from Justin Johnson's neural style transfer project(https://github.com/jcjohnson/fast-neural-style)
+    """
+
+    def __init__(self, input_nc=1, output_nc=1, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, padding_type='reflect'):
+        """Construct a Resnet-based generator
+        Parameters:
+            input_nc (int)      -- the number of channels in input images
+            output_nc (int)     -- the number of channels in output images
+            ngf (int)           -- the number of filters in the last conv layer
+            norm_layer          -- normalization layer
+            use_dropout (bool)  -- if use dropout layers
+            n_blocks (int)      -- the number of ResNet blocks
+            padding_type (str)  -- the name of padding layer in conv layers: reflect | replicate | zero
+        """
+        assert(n_blocks >= 0)
+        super(ResnetG, self).__init__()
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer == nn.InstanceNorm2d
+
+        model = [nn.ReflectionPad2d(3),
+                 nn.Conv2d(input_nc, ngf, kernel_size=7,
+                           padding=0, bias=use_bias),
+                 norm_layer(ngf),
+                 nn.ReLU(True)]
+
+        n_downsampling = 2
+        for i in range(n_downsampling):  # add downsampling layers
+            mult = 2 ** i
+            model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias),
+                      norm_layer(ngf * mult * 2),
+                      nn.ReLU(True)]
+
+        mult = 2 ** n_downsampling
+        for i in range(n_blocks):       # add ResNet blocks
+
+            model += [ResnetBlock(ngf * mult, padding_type=padding_type,
+                                  norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
+
+        for i in range(n_downsampling):  # add upsampling layers
+            mult = 2 ** (n_downsampling - i)
+            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
+                                         kernel_size=3, stride=2,
+                                         padding=1, output_padding=1,
+                                         bias=use_bias),
+                      norm_layer(int(ngf * mult / 2)),
+                      nn.ReLU(True)]
+        model += [nn.ReflectionPad2d(3)]
+        model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0)]
+        model += [nn.Tanh()]
+
+        self.model = nn.Sequential(*model)
+
+    def forward(self, input):
+        """Standard forward"""
+        return self.model(input)

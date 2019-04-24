@@ -7,6 +7,7 @@ import sys
 import glob
 import json
 import time
+import math
 
 import torch
 import torch.nn as nn
@@ -45,13 +46,17 @@ def get_opts():
     return opts
 
 
-def visualize(model, sample, writer, iterations, device):
-    real_X = sample['written'].to(device)
-    real_Y = sample['printed'].to(device)
+def visualize(model, sample, writer, iterations, opts):
+    real_X = sample['written'].to(opts.device)
+    real_Y = sample['printed'].to(opts.device)
     outputs = model(real_X, real_Y, is_g=True)
 
+    def normalize(x):
+        return (x - x.min()) / (x.max() - x.min() + 1e-10)
+
     def select(x):
-        return make_grid(x[:6], 3)
+        imgs = [normalize(x) for x in x[:6]]
+        return make_grid(imgs, math.ceil(len(imgs)**0.5))
 
     writer.add_image('1_real_X', select(real_X), iterations)
     writer.add_image('1_fake_Y', select(outputs['fake_Y']), iterations)
@@ -135,7 +140,7 @@ def train_gan(model, g_optimizer, d_optimizer, dl, opts):
                 if sample_to_visual is None:
                     sample_to_visual = sample
                 visualize(model, sample_to_visual,
-                          writer, iterations, opts.device)
+                          writer, iterations, opts)
 
         path = os.path.join(ckpt_dir, '{}.pth'.format(epoch + 1))
         torch.save(model, path)
