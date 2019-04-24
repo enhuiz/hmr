@@ -62,8 +62,11 @@ def visualize(model, sample, writer, iterations, device):
 
 def train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts):
     writer = SummaryWriter('runs/{}'.format(opts.name))
+    writer.add_text('opts', json.dumps(vars(opts)))
     sample_to_visual = None
     iterations = 0
+    ckpt_dir = os.path.join('checkpoints', opts.name)
+    os.makedirs(ckpt_dir, exist_ok=True)
 
     for epoch in range(opts.epoch0, opts.epochs):
         pbar = tqdm.tqdm(dl, total=len(dl))
@@ -128,18 +131,11 @@ def train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts):
             if step % opts.sample_every == 0:
                 if sample_to_visual is None:
                     sample_to_visual = sample
-                visualize(model, sample_to_visual, writer, iterations, opts.device)
+                visualize(model, sample_to_visual,
+                          writer, iterations, opts.device)
 
-        path = os.path.join('checkpoints', opts.name,
-                            '{}.pth'.format(epoch + 1))
+        path = os.path.join(ckpt_dir, '{}.pth'.format(epoch + 1))
         torch.save(model, path)
-
-
-def dump_config(opts):
-    config_path = os.path.join('checkpoints', opts.name, 'config.json')
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
-    with open(config_path, 'w') as f:
-        json.dump(vars(opts), f)
 
 
 def get_epoch_num(path):
@@ -176,9 +172,6 @@ def load_model(opts):
 
 def main():
     opts = get_opts()
-    os.makedirs('checkpoints', exist_ok=True)
-    dump_config(opts)
-    print(opts)
 
     model, epoch0 = load_model(opts)
     model = model.to(opts.device)
