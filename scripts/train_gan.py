@@ -11,9 +11,10 @@ import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset, Subset
 import matplotlib.pyplot as plt
 import tqdm
+from torchvision.utils import make_grid
 from tensorboardX import SummaryWriter
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -24,7 +25,7 @@ from hmr.models import cyclegan
 
 def get_opts():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-dir')
+    parser.add_argument('--data-dirs', nargs='+', type=str, default=[])
     parser.add_argument('--name', default='cyclegan')
     parser.add_argument('--model', default='UNetCycleGAN',
                         help='Either a model class name or a ckpt path')
@@ -35,8 +36,8 @@ def get_opts():
     parser.add_argument('--mean', type=float, nargs=1, default=[0.5])
     parser.add_argument('--continued', type=bool, default=True)
     parser.add_argument('--sample-every', type=int, default=10)
-    parser.add_argument('--g_conv_dim', type=int, default=128)
-    parser.add_argument('--d_conv_dim', type=int, default=128)
+    parser.add_argument('--g_conv_dim', type=int, default=256)
+    parser.add_argument('--d_conv_dim', type=int, default=64)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.999)
     parser.add_argument('--init_zero_weights', type=bool, default=True)
@@ -50,17 +51,17 @@ def visualize(model, sample, writer, iterations, device):
     outputs = model(real_X, real_Y, is_g=True)
 
     def select(x):
-        return x[0]
+        return make_grid(x[:6], 3)
 
-    writer.add_image('real_X', select(real_X), iterations)
-    writer.add_image('fake_X', select(outputs['fake_X']), iterations)
-    writer.add_image('rec_X', select(outputs['rec_X']), iterations)
-    writer.add_image('real_Y', select(real_Y), iterations)
-    writer.add_image('fake_Y', select(outputs['fake_Y']), iterations)
-    writer.add_image('rec_Y', select(outputs['rec_Y']), iterations)
+    writer.add_image('1_real_X', select(real_X), iterations)
+    writer.add_image('1_fake_Y', select(outputs['fake_Y']), iterations)
+    writer.add_image('1_rec_X', select(outputs['rec_X']), iterations)
+    writer.add_image('2_real_Y', select(real_Y), iterations)
+    writer.add_image('2_fake_X', select(outputs['fake_X']), iterations)
+    writer.add_image('2_rec_Y', select(outputs['rec_Y']), iterations)
 
 
-def train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts):
+def train_gan(model, g_optimizer, d_optimizer, dl, opts):
     writer = SummaryWriter('runs/{}'.format(opts.name))
     writer.add_text('opts', json.dumps(vars(opts)))
     sample_to_visual = None
@@ -68,49 +69,53 @@ def train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts):
     ckpt_dir = os.path.join('checkpoints', opts.name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
+    bcewl_criterion = nn.BCEWithLogitsLoss()
+    l1_criterion = nn.L1Loss()
+
     for epoch in range(opts.epoch0, opts.epochs):
         pbar = tqdm.tqdm(dl, total=len(dl))
         for step, sample in enumerate(pbar):
             real_X = sample['written'].to(opts.device)
             real_Y = sample['printed'].to(opts.device)
-            ones = torch.ones(opts.batch_size).to(opts.device)
-            zeros = torch.zeros(opts.batch_size).to(opts.device)
+            ones = torch.ones(len(real_X), 1).to(opts.device)
+            zeros = torch.zeros(len(real_X), 1).to(opts.device)
 
             # Train D
+            d_optimizer.zero_grad()
             outputs = model(real_X, real_Y, is_g=False)
 
             # Train with real images
-            D_X_loss = criterion(outputs['real_X_score'], ones)
-            D_Y_loss = criterion(outputs['real_Y_score'], ones)
+            D_X_loss = bcewl_criterion(outputs['real_X_score'], ones)
+            D_Y_loss = bcewl_criterion(outputs['real_Y_score'], ones)
             d_real_loss = D_X_loss + D_Y_loss
             d_real_loss.backward()
 
             # Train with fake images
-            D_X_loss = criterion(outputs['fake_X_score'], zeros)
-            D_Y_loss = criterion(outputs['fake_Y_score'], zeros)
+            D_X_loss = bcewl_criterion(outputs['fake_X_score'], zeros)
+            D_Y_loss = bcewl_criterion(outputs['fake_Y_score'], zeros)
             d_fake_loss = D_X_loss + D_Y_loss
             d_fake_loss.backward()
 
             d_optimizer.step()
-            d_optimizer.zero_grad()
 
             # Train G
+            g_optimizer.zero_grad()
             outputs = model(real_X, real_Y, is_g=True)
 
-            # Train with Y--X-->Y CYCLE
-            g_loss = criterion(outputs['fake_X_score'], ones)
-            cycle_consistency_loss = criterion(outputs['rec_Y'], real_Y)
-            g_loss += cycle_consistency_loss
-            g_loss.backward()
-
             # Train with X--Y-->X CYCLE
-            g_loss = criterion(outputs['fake_Y_score'], ones)
-            cycle_consistency_loss = criterion(outputs['rec_X'], real_X)
-            g_loss += cycle_consistency_loss
+            G_X_loss = bcewl_criterion(outputs['fake_Y_score'], ones)
+            cycle_consistency_loss = l1_criterion(outputs['rec_X'], real_X)
+            G_X_loss += cycle_consistency_loss
+
+            # Train with Y--X-->Y CYCLE
+            G_Y_loss = bcewl_criterion(outputs['fake_X_score'], ones)
+            cycle_consistency_loss = l1_criterion(outputs['rec_Y'], real_Y)
+            G_Y_loss += cycle_consistency_loss
+
+            g_loss = G_X_loss + G_Y_loss
             g_loss.backward()
 
             g_optimizer.step()
-            g_optimizer.zero_grad()
 
             iterations += 1
             pbar.set_description('Epoch [{}/{}], d_real_loss: {:6.4f} | d_Y_loss: {:6.4f} | d_X_loss: {:6.4f} | '
@@ -167,8 +172,17 @@ def load_model(opts):
     return model, epoch0
 
 
+def load_dataset(data_dirs):
+    datasets = [MathDataset(d, 'train', paired=False) for d in data_dirs]
+    min_len = min(map(len, datasets))
+    # balance the dataset
+    datasets = [Subset(ds, range(min_len)) for ds in datasets]
+    return ConcatDataset(datasets)
+
+
 def main():
     opts = get_opts()
+    print(opts)
 
     model, epoch0 = load_model(opts)
     model = model.to(opts.device)
@@ -178,13 +192,11 @@ def main():
                                    opts.beta1, opts.beta2])
     d_optimizer = torch.optim.Adam(model.d_params(), opts.lr, [
                                    opts.beta1, opts.beta2])
-    criterion = torch.nn.MSELoss()
 
-    dataset = MathDataset(opts.data_dir, 'train')
-
+    dataset = load_dataset(opts.data_dirs)
     dl = DataLoader(dataset, batch_size=opts.batch_size, shuffle=True)
 
-    train_gan(model, criterion, g_optimizer, d_optimizer, dl, opts)
+    train_gan(model, g_optimizer, d_optimizer, dl, opts)
 
 
 if __name__ == "__main__":

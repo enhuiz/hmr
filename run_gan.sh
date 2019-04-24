@@ -6,32 +6,31 @@ name=$2
 [ -z $device ] && device=cpu
 [ -z $name ] && name=cyclegan
 
-model=UPerNetCycleGAN #UNetCycleGAN
-name=cyclegan
+model=UPerNetCycleGAN
 mean=0.5
 
-# train on mnist
+# train mixed
 
-lr=1e-4
+lr=5e-4
 batch_size=16
-epochs=10
+epochs=1
 
 python3 -u scripts/train_gan.py \
     --device $device \
-    --data-dir data/mnist \
+    --data-dir data/mnist data/crohme \
     --batch-size $batch_size \
     --epochs $epochs \
-    --name $name/mnist \
+    --name $name/mixed \
     --model $model \
     --lr $lr \
     --mean "$mean" || exit 1
 
 # train on crohme
 
-lr=1e-4
-epochs=10
-batch_size=8
-model=$(ls -1v checkpoints/$name/mnist/*.pth | tail -1)
+lr=2e-4
+epochs=5
+batch_size=16
+model=$(ls -1v checkpoints/$name/mixed/*.pth | tail -1)
 
 python3 -u scripts/train_gan.py \
     --device $device \
