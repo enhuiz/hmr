@@ -146,7 +146,7 @@ class UPerNetGenerator(nn.Module):
         super(UPerNetGenerator, self).__init__()
 
         self.encoder = resnet18(dilation=True)
-        self.decoder = UPerNet(fc_dim=512, pool_scales=(4, 6, 12),
+        self.decoder = UPerNet(fc_dim=512, pool_scales=(2, 3, 6),
                                fpn_inplanes=(128, 256, 512), fpn_dim=conv_dim)
 
     def forward(self, x):
