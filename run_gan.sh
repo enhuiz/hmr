@@ -1,9 +1,10 @@
 #!/bin/bash
 
 device=$1
+name=$2
 
 [ -z $device ] && device=cpu
-[ -z $stage ] && stage=0
+[ -z $stage ] && name=cyclegan
 
 name=cyclegan
 mean=0.5
@@ -11,7 +12,7 @@ mean=0.5
 # train on mnist
 
 lr=1e-4
-batch_size=8
+batch_size=16
 epochs=10
 
 python3 -u scripts/train_gan.py \
@@ -28,7 +29,7 @@ python3 -u scripts/train_gan.py \
 
 lr=1e-4
 epochs=10
-batch_size=4
+batch_size=8
 model=$(ls -1v checkpoints/$name/mnist/*.pth | tail -1)
 
 python3 -u scripts/train_gan.py \
@@ -38,5 +39,6 @@ python3 -u scripts/train_gan.py \
     --batch-size $batch_size \
     --epochs $epochs \
     --name $name/crohme \
+    --upernet true\
     --lr $lr \
     --mean "$mean" || exit 1
