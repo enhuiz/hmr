@@ -20,8 +20,8 @@ from tensorboardX import SummaryWriter
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from hmr.data.dataset import MathDataset
-from hmr.models import cyclegan
+from hmr.data import MathDataset, default_transform
+from hmr.networks import munit
 
 
 def get_opts():
@@ -37,11 +37,13 @@ def get_opts():
     parser.add_argument('--mean', type=float, nargs=1, default=[0.5])
     parser.add_argument('--continued', type=bool, default=True)
     parser.add_argument('--sample-every', type=int, default=10)
-    parser.add_argument('--g_conv_dim', type=int, default=256)
-    parser.add_argument('--d_conv_dim', type=int, default=64)
+    parser.add_argument('--g-conv-dim', type=int, default=256)
+    parser.add_argument('--d-conv-dim', type=int, default=64)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.999)
-    parser.add_argument('--init_zero_weights', type=bool, default=True)
+    parser.add_argument('--init-zero-weights', type=bool, default=True)
+    parser.add_argument('--lambd', type=float, default=0.5)
+    parser.add_argument('--size', type=int, nargs=2, default=[224, 224])
     opts = parser.parse_args()
     return opts
 
@@ -49,10 +51,10 @@ def get_opts():
 def visualize(model, sample, writer, iterations, opts):
     real_X = sample['written'].to(opts.device)
     real_Y = sample['printed'].to(opts.device)
-    outputs = model(real_X, real_Y, is_g=True)
+    outputs = model(real_X, real_Y, is_d=False)
 
     def normalize(x):
-        return (x - x.min()) / (x.max() - x.min() + 1e-10)
+        return (x - x.min()) / (x.max() - x.min() + 1e-20)
 
     def select(x):
         imgs = [normalize(x) for x in x[:6]]
@@ -67,79 +69,55 @@ def visualize(model, sample, writer, iterations, opts):
 
 
 def train_gan(model, g_optimizer, d_optimizer, dl, opts):
+    model = model.train()
+
     writer = SummaryWriter('runs/{}'.format(opts.name))
     writer.add_text('opts', json.dumps(vars(opts)))
-    sample_to_visual = None
-    iterations = 0
-    ckpt_dir = os.path.join('checkpoints', opts.name)
+    visual_sample = None
+
+    ckpt_dir = os.path.join('ckpt', opts.name)
     os.makedirs(ckpt_dir, exist_ok=True)
 
-    bcewl_criterion = nn.BCEWithLogitsLoss()
-    l1_criterion = nn.L1Loss()
+    iterations = 0
 
     for epoch in range(opts.epoch0, opts.epochs):
         pbar = tqdm.tqdm(dl, total=len(dl))
         for step, sample in enumerate(pbar):
             real_X = sample['written'].to(opts.device)
             real_Y = sample['printed'].to(opts.device)
-            ones = torch.ones(len(real_X), 1).to(opts.device)
-            zeros = torch.zeros(len(real_X), 1).to(opts.device)
 
             # Train D
+            d_out = model(real_X, real_Y, is_d=True)
             d_optimizer.zero_grad()
-            outputs = model(real_X, real_Y, is_g=False)
-
-            # Train with real images
-            D_X_loss = bcewl_criterion(outputs['real_X_score'], ones)
-            D_Y_loss = bcewl_criterion(outputs['real_Y_score'], ones)
-            d_real_loss = D_X_loss + D_Y_loss
-            d_real_loss.backward()
-
-            # Train with fake images
-            D_X_loss = bcewl_criterion(outputs['fake_X_score'], zeros)
-            D_Y_loss = bcewl_criterion(outputs['fake_Y_score'], zeros)
-            d_fake_loss = D_X_loss + D_Y_loss
-            d_fake_loss.backward()
-
+            d_out['d_loss'] = d_out['d_real_loss'] + d_out['d_fake_loss']
+            d_out['d_loss'].backward()
             d_optimizer.step()
 
             # Train G
+            g_out = model(real_X, real_Y, is_d=False)
             g_optimizer.zero_grad()
-            outputs = model(real_X, real_Y, is_g=True)
-
-            G_X_loss = bcewl_criterion(outputs['fake_Y_score'], ones)
-            G_Y_loss = bcewl_criterion(outputs['fake_X_score'], ones)
-            g_fake_loss = G_X_loss + G_Y_loss
-
-            G_X_cycle_loss = l1_criterion(outputs['rec_X'], real_X)
-            G_Y_cycle_loss = l1_criterion(outputs['rec_Y'], real_Y)
-            g_cycle_loss = G_X_cycle_loss + G_Y_cycle_loss
-
-            g_loss = g_fake_loss + g_cycle_loss
-            g_loss.backward()
-
+            g_out['g_loss'] = g_out['g_fake_loss'] + \
+                opts.lambd * g_out['g_cycle_loss']
+            g_out['g_loss'].backward()
             g_optimizer.step()
 
             iterations += 1
-            pbar.set_description('Epoch [{}/{}], '
-                                 'd_real_loss: {:6.4f} | '
-                                 'd_fake_loss: {:6.4f} | '
-                                 'g_fake_loss: {:6.4f} | '
-                                 'g_cycle_loss: {:6.4f}'.format(epoch, opts.epochs,
-                                                                d_real_loss.item(),
-                                                                d_fake_loss.item(),
-                                                                g_fake_loss.item(),
-                                                                g_cycle_loss.item()))
 
-            writer.add_scalar('loss/d_real', d_real_loss.item(), iterations)
-            writer.add_scalar('loss/d_fake', d_fake_loss.item(), iterations)
-            writer.add_scalar('loss/g_fake', g_fake_loss.item(), iterations)
-            writer.add_scalar('loss/g_cycle', g_cycle_loss.item(), iterations)
+            out = list(d_out.items()) + list(g_out.items())
+            out_loss = [(k, v) for k, v in out if '_loss' in k]
+
+            texts = []
+            for k, v in out_loss:
+                writer.add_scalar(k, v.item(), iterations)
+                texts.append('{}: {:6.4f}'.format(k, v.item()))
+
+            pbar.set_description('Epoch [{}/{}]'.format(epoch, opts.epochs),
+                                 ' | '.join(texts))
 
             if step % opts.sample_every == 0:
-                if sample_to_visual is None:
-                    sample_to_visual = sample
-                visualize(model, sample_to_visual,
+                if visual_sample is None:
+                    visual_sample = sample
+                visualize(model, visual_sample,
                           writer, iterations, opts)
 
         path = os.path.join(ckpt_dir, '{}.pth'.format(epoch + 1))
@@ -156,13 +134,13 @@ def get_epoch_num(path):
 
 
 def load_model(opts):
-    ckpts = glob.glob(os.path.join('checkpoints', opts.name, '*.pth'))
+    ckpts = glob.glob(os.path.join('ckpt', opts.name, '*.pth'))
     ckpts = [ckpt for ckpt in ckpts if get_epoch_num(ckpt) is not None]
     epoch0 = 0
 
     if len(ckpts) > 0 and opts.continued:
         ckpt = max(ckpts, key=get_epoch_num)  # latest one
-        model = torch.load(ckpt)
+        model = torch.load(ckpt, map_location='cpu')
         epoch0 = get_epoch_num(ckpt)
         print('Checkpoint {} loaded.'.format(ckpt))
     elif os.path.exists(opts.model):
@@ -175,8 +153,9 @@ def load_model(opts):
     return model, epoch0
 
 
-def load_dataset(data_dirs):
-    datasets = [MathDataset(d, 'train', paired=False) for d in data_dirs]
+def load_dataset(opts):
+    datasets = [MathDataset(d, 'train', default_transform(
+        opts.size), paired=False) for d in opts.data_dirs]
     min_len = min(map(len, datasets))
     # balance the dataset
     datasets = [Subset(ds, range(min_len)) for ds in datasets]
@@ -191,12 +170,12 @@ def main():
     model = model.to(opts.device)
     opts.epoch0 = epoch0
 
-    g_optimizer = torch.optim.Adam(model.g_params(), opts.lr, [
-                                   opts.beta1, opts.beta2])
-    d_optimizer = torch.optim.Adam(model.d_params(), opts.lr, [
-                                   opts.beta1, opts.beta2])
+    g_optimizer = torch.optim.Adam(
+        model.g_params(), opts.lr, [opts.beta1, opts.beta2])
+    d_optimizer = torch.optim.Adam(
+        model.d_params(), opts.lr, [opts.beta1, opts.beta2])
 
-    dataset = load_dataset(opts.data_dirs)
+    dataset = load_dataset(opts)
     dl = DataLoader(dataset, batch_size=opts.batch_size, shuffle=True)
 
     train_gan(model, g_optimizer, d_optimizer, dl, opts)

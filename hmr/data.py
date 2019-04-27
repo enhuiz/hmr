@@ -69,8 +69,16 @@ class Vocab(object):
         return len(self.s2l) + 1  # unk
 
 
+def default_transform(size=(224, 224)):
+    return transforms.Compose([
+        transforms.Resize(size),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [1])
+    ])
+
+
 class MathDataset(Dataset):
-    def __init__(self, data_dir, typ, transform=None, pad_idx=2333, paired=True):
+    def __init__(self, data_dir, typ, transform, pad_idx=2333, paired=True):
         self.vocab = Vocab(data_dir)
         self.paired = paired
         self.pad_idx = pad_idx
@@ -82,14 +90,7 @@ class MathDataset(Dataset):
             corpus['printed'] = corpus['printed'].sample(frac=1).values
         self.samples = corpus.to_dict('record')
 
-        if transform is None:
-            self.transform = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [1])
-            ])
-        else:
-            self.transform = transform
+        self.transform = transform
 
     @staticmethod
     def load_pil(path):

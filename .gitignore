@@ -9,5 +9,7 @@ exp
 *.png
 *.svg
 ipynb
-checkpoints/
+ckpt/
 runs/
+old
+config/

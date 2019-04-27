@@ -45,6 +45,11 @@ def conv3x3_bn_relu(in_planes, out_planes, stride=1):
     )
 
 
+def conv1x1(in_planes, out_planes, stride=1):
+    """1x1 convolution"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
+
 class ResnetBlock(nn.Module):
     """Define a Resnet block"""
 
