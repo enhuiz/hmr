@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 import os
 
-from utils import get_scheduler, weights_init
+from utils import weights_init
 
 
 ##################################################################################
@@ -401,12 +401,6 @@ class MUNIT_Trainer(nn.Module):
             list(self.dis_b.parameters())
         gen_params = list(self.gen_a.parameters()) + \
             list(self.gen_b.parameters())
-        self.dis_opt = torch.optim.Adam([p for p in dis_params if p.requires_grad],
-                                        lr=lr, betas=(beta1, beta2), weight_decay=opts['weight_decay'])
-        self.gen_opt = torch.optim.Adam([p for p in gen_params if p.requires_grad],
-                                        lr=lr, betas=(beta1, beta2), weight_decay=opts['weight_decay'])
-        self.dis_scheduler = get_scheduler(self.dis_opt, opts)
-        self.gen_scheduler = get_scheduler(self.gen_opt, opts)
 
         # Network weight initialization
         self.apply(weights_init(opts['init']))
@@ -427,8 +421,7 @@ class MUNIT_Trainer(nn.Module):
         self.train()
         return x_ab, x_ba
 
-    def gen_update(self, x_a, x_b, opts):
-        self.gen_opt.zero_grad()
+    def backward_G(self, x_a, x_b, opts):
         s_a = Variable(torch.randn(x_a.size(0), self.style_dim, 1, 1).cuda())
         s_b = Variable(torch.randn(x_b.size(0), self.style_dim, 1, 1).cuda())
         # encode
@@ -467,10 +460,11 @@ class MUNIT_Trainer(nn.Module):
             opts['recon_c_w'] * self.loss_gen_recon_c_b
 
         self.loss_gen_total.backward()
-        self.gen_opt.step()
+        return {
+            'loss': self.loss_gen_total,
+        }
 
-    def sample(self, x_a, x_b):
-        self.eval()
+    def forward(self, x_a, x_b):
         s_a1 = Variable(self.s_a)
         s_b1 = Variable(self.s_b)
         s_a2 = Variable(torch.randn(x_a.size(0), self.style_dim, 1, 1).cuda())
@@ -488,11 +482,9 @@ class MUNIT_Trainer(nn.Module):
         x_a_recon, x_b_recon = torch.cat(x_a_recon), torch.cat(x_b_recon)
         x_ba1, x_ba2 = torch.cat(x_ba1), torch.cat(x_ba2)
         x_ab1, x_ab2 = torch.cat(x_ab1), torch.cat(x_ab2)
-        self.train()
         return x_a, x_a_recon, x_ab1, x_ab2, x_b, x_b_recon, x_ba1, x_ba2
 
-    def dis_update(self, x_a, x_b, opts):
-        self.dis_opt.zero_grad()
+    def backward_D(self, x_a, x_b, opts):
         s_a = Variable(torch.randn(x_a.size(0), self.style_dim, 1, 1).cuda())
         s_b = Variable(torch.randn(x_b.size(0), self.style_dim, 1, 1).cuda())
         # encode
@@ -507,10 +499,6 @@ class MUNIT_Trainer(nn.Module):
         self.loss_dis_total = opts['gan_w'] * \
             self.loss_dis_a + opts['gan_w'] * self.loss_dis_b
         self.loss_dis_total.backward()
-        self.dis_opt.step()
-
-    def update_learning_rate(self):
-        if self.dis_scheduler is not None:
-            self.dis_scheduler.step()
-        if self.gen_scheduler is not None:
-            self.gen_scheduler.step()
+        return {
+            'loss': self.loss_dis_total
+        }

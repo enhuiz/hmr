@@ -10,6 +10,6 @@ else
     if [ -z "$opts" ]; then
         echo "No options provided."
     else
-        python3 -u scripts/train_cycle_gan.py $opts
+        python3 -u scripts/train_seq2seq.py $opts
     fi
 fi

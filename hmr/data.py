@@ -4,8 +4,12 @@ import numpy as np
 import pandas as pd
 
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+import torch
+from torch.utils.data import Dataset, DataLoader, ConcatDataset, Subset
 from torchvision import transforms
+from torch.nn.utils.rnn import pad_sequence
+
+from hmr import vocab
 
 
 def load_corpus(data_dir, typ):
@@ -28,45 +32,9 @@ def load_corpus(data_dir, typ):
 
     df = df[existence == True]
 
-    df['latex'] = df['latex'].apply(lambda x: str(x).split(' '))
-    df['len'] = df['latex'].apply(len)
+    df['caption'] = df['latex']
 
     return df
-
-
-class Vocab(object):
-    def __init__(self, data_dir, unk='unk'):
-        self.s2l = self.load_vocab(data_dir)
-        self.l2s = {v: k for k, v in self.s2l.items()}
-        self.unk = unk
-
-    @staticmethod
-    def load_vocab(data_dir):
-        path = os.path.join(data_dir, 'annotations', 'vocab.csv')
-        with open(path, 'r') as f:
-            content = f.read().strip()
-        vocab = content.split('\n')
-        vocab = {w: i for i, w in enumerate(vocab)}
-        return vocab
-
-    def symbol2label(self, s):
-        if s in self.s2l:
-            return self.s2l[s]
-        return len(self.s2l)  # unk
-
-    def latex2labels(self, latex):
-        return list(map(self.symbol2label, latex))
-
-    def label2symbol(self, l):
-        if l in self.l2s:
-            return self.l2s[l]
-        return self.unk
-
-    def labels2latex(self, labels):
-        return list(map(self.labels2latex, labels))
-
-    def __len__(self):
-        return len(self.s2l) + 1  # unk
 
 
 def default_transform(size=(224, 224)):
@@ -78,19 +46,19 @@ def default_transform(size=(224, 224)):
 
 
 class MathDataset(Dataset):
-    def __init__(self, data_dir, typ, transform, pad_idx=2333, paired=True):
-        self.vocab = Vocab(data_dir)
-        self.paired = paired
-        self.pad_idx = pad_idx
-
-        corpus = load_corpus(data_dir, typ)
-        self.max_len = max(corpus['len'])
-        if not self.paired:
-            # shuffle
-            corpus['printed'] = corpus['printed'].sample(frac=1).values
-        self.samples = corpus.to_dict('record')
-
+    def __init__(self, data_dir, typ, transform, written=False):
         self.transform = transform
+
+        vocab.init_vocab(data_dir)
+        corpus = load_corpus(data_dir, typ)
+
+        if written:
+            corpus['image'] = corpus['written']
+        else:
+            corpus['image'] = corpus['printed']
+
+        corpus = corpus[['image', 'caption']]
+        self.samples = corpus.to_dict('record')
 
     @staticmethod
     def load_pil(path):
@@ -98,23 +66,49 @@ class MathDataset(Dataset):
             img = Image.open(f)
             return img.convert('L')
 
+    def process_caption(self, caption):
+        caption = '<s> {} </s>'.format(caption).split(' ')
+        caption = list(map(vocab.word2index, caption))
+        caption = torch.tensor(caption)
+        return caption
+
     def __getitem__(self, idx):
         sample = dict(self.samples[idx])
-
-        printed = self.transform(self.load_pil(sample['printed']))
-        written = self.transform(self.load_pil(sample['written']))
-
-        if self.paired:
-            # only paired data have label
-            latex = sample['latex']
-            label = self.vocab.latex2labels(latex)
-            label = label + [self.pad_idx] * (self.max_len - len(label))
-            sample['label'] = np.array(label)
-            sample['latex'] = ' '.join(latex)
-
-        sample['printed'] = printed
-        sample['written'] = written
+        image = self.transform(self.load_pil(sample['image']))
+        caption = self.process_caption(sample['caption'])
+        sample['image'] = image
+        sample['caption'] = caption
+        sample['len'] = len(caption)
         return sample
 
     def __len__(self):
         return len(self.samples)
+
+    @staticmethod
+    def collate_fn(batch):
+        image = [sample['image'] for sample in batch]
+        caption = [sample['caption'] for sample in batch]
+        len_ = [sample['len'] for sample in batch]
+
+        ret = {}
+        pad_ix = vocab.word2index('<pad>')
+        ret['image'] = torch.stack(image)
+        ret['caption'] = pad_sequence(caption, False, pad_ix)
+        ret['len'] = torch.tensor(len_)
+
+        return ret
+
+
+def main():
+    dataset = MathDataset('data/crohme', 'train',
+                          default_transform(80), written=False)
+    print('vocab len', vocab.size())
+    dl = DataLoader(dataset, batch_size=8, shuffle=False,
+                    collate_fn=MathDataset.collate_fn)
+    for sample in dl:
+        print({k: v.shape for k, v in sample.items()})
+        break
+
+
+if __name__ == "__main__":
+    main()

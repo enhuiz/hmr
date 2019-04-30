@@ -1,16 +1,5 @@
-from torch.optim import lr_scheduler
-
-
-def get_scheduler(optimizer, hyperparameters, iterations=-1):
-    if 'lr_policy' not in hyperparameters or hyperparameters['lr_policy'] == 'constant':
-        scheduler = None  # constant scheduler
-    elif hyperparameters['lr_policy'] == 'step':
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=hyperparameters['step_size'],
-                                        gamma=hyperparameters['gamma'], last_epoch=iterations)
-    else:
-        return NotImplementedError('learning rate policy [%s] is not implemented', hyperparameters['lr_policy'])
-    return scheduler
-
+import torch.nn.init as init
+import math
 
 def weights_init(init_type='gaussian'):
     def init_fun(m):
