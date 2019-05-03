@@ -1,11 +1,9 @@
 import os
 import re
-import json
 import numpy as np
 import argparse
 import sys
 import glob
-import json
 import time
 import math
 
@@ -17,46 +15,26 @@ import matplotlib.pyplot as plt
 import tqdm
 from torchvision.utils import make_grid
 from tensorboardX import SummaryWriter
-from pandas.io.json import json_normalize
 from nltk.metrics import edit_distance
 from nltk.translate.bleu_score import sentence_bleu
-
+from torchvision import transforms
 
 torch.backends.cudnn.benchmark = True
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr import vocab
-from hmr.data import MathDataset, default_transform
-from hmr.networks import seq2seq
+from hmr import networks
+from hmr.data import MathDataset
+
+from utils import get_config, get_epoch_num
 
 
 def get_opts():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-dir', type=str)
-    parser.add_argument('--name', default='seq2seq')
-    parser.add_argument('--model', default='ShowAttendAndTell',
-                        help='Either a model class name or a ckpt path')
-    parser.add_argument('--device', default='cuda')
-    parser.add_argument('--epochs', type=int, default=4)
-    parser.add_argument('--lr', type=float, default=5e-3)
-    parser.add_argument('--batch-size', type=int, default=32)
-    parser.add_argument('--mean', type=float, nargs=1, default=[0.5])
-    parser.add_argument('--continued', type=bool, default=True)
-    parser.add_argument('--sample-every', type=int, default=10)
-    parser.add_argument('--g-conv-dim', type=int, default=256)
-    parser.add_argument('--d-conv-dim', type=int, default=64)
-    parser.add_argument('--beta1', type=float, default=0.5)
-    parser.add_argument('--beta2', type=float, default=0.999)
-    parser.add_argument('--init-zero-weights', type=bool, default=True)
-    parser.add_argument('--lambd', type=float, default=0.5)
-    parser.add_argument('--size', type=int, nargs=2, default=[224, 224])
-    parser.add_argument('--hidden_dim', type=int,
-                        default=64, help='rnn hidden dim')
-    parser.add_argument('--max-length', type=int, default=90)
-    parser.add_argument('--heads', type=int, default=4)
-    opts = parser.parse_args()
-    return opts
+    parser.add_argument('config', type=str)
+    args = parser.parse_args()
+    return get_config(args.config)
 
 
 def visualize(model, sample, writer, iterations, opts):
@@ -105,7 +83,7 @@ def train(model, optimizer, dl, opts):
     model = model.train()
 
     writer = SummaryWriter('runs/{}'.format(opts.name))
-    writer.add_text('opts', json.dumps(vars(opts)))
+    writer.add_text('opts', str(opts))
     visual_sample = None
 
     ckpt_dir = os.path.join('ckpt', opts.name)
@@ -167,24 +145,26 @@ def load_model(opts):
         model = torch.load(opts.model)
         print('Model {} loaded.'.format(opts.model))
     else:
-        model = seq2seq.get_model(opts)
+        model = networks.get_model(opts)
         print('Model created.')
 
     return model, epoch0
 
 
+def create_transform(opts):
+    return transforms.Compose([
+        transforms.Resize(opts.base_size),
+        transforms.ColorJitter(0.5, 0.5, 0.5),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [1]),
+    ])
+
+
 def load_dataloader(opts):
-    pds = MathDataset(opts.data_dir, 'train',
-                      default_transform(opts.size),
-                      written=False)
+    ds = MathDataset(opts.data_dir, 'train',
+                     create_transform(opts),
+                     written=False)
 
-    wds = MathDataset(opts.data_dir, 'train',
-                      default_transform(opts.size),
-                      written=True)
-
-    assert len(pds) == len(wds)
-
-    ds = ConcatDataset([pds, wds])
     dl = DataLoader(ds, batch_size=opts.batch_size,
                     shuffle=True, collate_fn=MathDataset.collate_fn)
 

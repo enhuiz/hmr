@@ -1,6 +1,6 @@
 # meta
-name: MUNIT/mnist
-model: MUNIT
+name: Seq2Seq/crohme
+model: Seq2Seq
 
 # data
 data_dir: "data/crohme"
@@ -19,3 +19,9 @@ continued: true
 # log
 sample_every: 20
 display_size: 6
+
+# model
+decoder:
+  heads: 8
+  input_dim: 256
+  hidden_dim: 256
