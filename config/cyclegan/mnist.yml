@@ -1,0 +1,28 @@
+# meta
+name: CycleGAN/mnist
+model: CycleGAN
+base_size: [80, 80]
+crop_size: [60, 60]
+
+# data
+data_dir: data/mnist
+
+# train
+device: cuda
+epochs: 10
+lr: 0.001
+beta1: 0.5
+beta2: 0.999
+batch_size: 32
+mean: [0.5]
+lambd_x: 5
+lambd_y: 5
+continued: true
+
+# log
+sample_every: 20
+display_size: 6
+
+# model
+g_conv_dim: 32
+d_conv_dim: 32

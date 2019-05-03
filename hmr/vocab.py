@@ -15,12 +15,16 @@ def init_vocab(data_dir):
     vocab.add('<s>')
     vocab.add('</s>')
     vocab.add('<pad>')
+    vocab.add('<unk>')
     vocab = sorted(vocab)
     dict_ = {w: i for i, w in enumerate(vocab)}
 
 
 def word2index(w):
-    return dict_[w]
+    if w in dict_:
+        return dict_[w]
+    else:
+        return dict_['<unk>']
 
 
 def index2word(i):

@@ -1,0 +1,37 @@
+# meta
+name: MUNIT/mnist
+model: MUNIT
+
+# data
+data_dir: data/mnist
+size: [80, 80]
+
+# train
+device: cuda
+epochs: 5
+lr: 0.001
+beta1: 0.5
+beta2: 0.999
+batch_size: 16
+mean: [0.5]
+continued: true
+
+gan_w: 1 # weight of adversarial loss
+recon_x_w: 5 # weight of image reconstruction loss
+recon_s_w: 2 # weight of style reconstruction loss
+recon_c_w: 2 # weight of content reconstruction loss
+
+# log
+sample_every: 20
+display_size: 6
+
+# model
+gen:
+  dim: 16 # number of filters in the bottommost layer
+  style_dim: 8 # length of style code
+  n_downsample: 2 # number of downsampling layers in content encoder
+  n_res: 4 # number of residual blocks in content encoder/decoder
+dis:
+  dim: 16 # number of filters in the bottommost layer
+  n_layer: 4 # number of layers in D
+  num_scales: 3 # number of scales

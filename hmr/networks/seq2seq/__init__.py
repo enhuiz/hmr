@@ -5,13 +5,12 @@ import random
 from torch.nn.utils.rnn import pack_padded_sequence
 import torch.nn.functional as F
 
-from hmr.networks.utils import get_class
 from hmr import vocab
 from .encoder import NLayerD
 from .decoder import MultiHeadAttnGRU
 
 
-class EncoderDecoderNet(nn.Module):
+class EncoderDecoder(nn.Module):
     def __init__(self):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss()
@@ -66,7 +65,7 @@ class Identity(nn.Module):
         return x
 
 
-class ResMultiHeadAttnGRU(EncoderDecoderNet):
+class Seq2Seq(EncoderDecoder):
     def __init__(self, opts):
         super().__init__()
         self.encoder = NLayerD(1, keep_channel=True)
@@ -76,5 +75,5 @@ class ResMultiHeadAttnGRU(EncoderDecoderNet):
 
 
 def get_model(opts):
-    model_list = [ResMultiHeadAttnGRU]
+    model_list = [Seq2Seq]
     return get_class(model_list, opts.model)(opts)

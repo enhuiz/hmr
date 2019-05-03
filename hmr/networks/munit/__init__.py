@@ -8,8 +8,8 @@ import torch
 import torch.nn.functional as F
 import os
 
-from utils import weights_init
 
+from .utils import weights_init
 
 ##################################################################################
 # Discriminator
@@ -20,13 +20,9 @@ class MsImageDis(nn.Module):
     # Multi-scale discriminator architecture
     def __init__(self, input_dim, params):
         super(MsImageDis, self).__init__()
-        self.n_layer = params['n_layer']
-        self.gan_type = params['gan_type']
-        self.dim = params['dim']
-        self.norm = params['norm']
-        self.activ = params['activ']
-        self.num_scales = params['num_scales']
-        self.pad_type = params['pad_type']
+        self.n_layer = params.n_layer
+        self.dim = params.dim
+        self.num_scales = params.num_scales
         self.input_dim = input_dim
         self.downsample = nn.AvgPool2d(
             3, stride=2, padding=[1, 1], count_include_pad=False)
@@ -37,11 +33,9 @@ class MsImageDis(nn.Module):
     def _make_net(self):
         dim = self.dim
         cnn_x = []
-        cnn_x += [Conv2dBlock(self.input_dim, dim, 4, 2, 1, norm='none',
-                              activation=self.activ, pad_type=self.pad_type)]
+        cnn_x += [Conv2dBlock(self.input_dim, dim, 4, 2, 1)]
         for i in range(self.n_layer - 1):
-            cnn_x += [Conv2dBlock(dim, dim * 2, 4, 2, 1, norm=self.norm,
-                                  activation=self.activ, pad_type=self.pad_type)]
+            cnn_x += [Conv2dBlock(dim, dim * 2, 4, 2, 1)]
             dim *= 2
         cnn_x += [nn.Conv2d(dim, 1, 1, 1, 0)]
         cnn_x = nn.Sequential(*cnn_x)
@@ -59,34 +53,17 @@ class MsImageDis(nn.Module):
         outs0 = self.forward(input_fake)
         outs1 = self.forward(input_real)
         loss = 0
-
-        for it, (out0, out1) in enumerate(zip(outs0, outs1)):
-            if self.gan_type == 'lsgan':
-                loss += torch.mean((out0 - 0)**2) + torch.mean((out1 - 1)**2)
-            elif self.gan_type == 'nsgan':
-                all0 = Variable(torch.zeros_like(
-                    out0.data).cuda(), requires_grad=False)
-                all1 = Variable(torch.ones_like(
-                    out1.data).cuda(), requires_grad=False)
-                loss += torch.mean(F.binary_cross_entropy(F.sigmoid(out0), all0) +
-                                   F.binary_cross_entropy(F.sigmoid(out1), all1))
-            else:
-                assert 0, "Unsupported GAN type: {}".format(self.gan_type)
+        for out0, out1 in zip(outs0, outs1):
+            loss += F.mse_loss(out0, torch.zeros_like(out0)) + \
+                F.mse_loss(out1, torch.ones_like(out1))
         return loss
 
     def calc_gen_loss(self, input_fake):
-        # calculate the loss to train G
+        # calculate the loss to train D
         outs0 = self.forward(input_fake)
         loss = 0
-        for it, (out0) in enumerate(outs0):
-            if self.gan_type == 'lsgan':
-                loss += torch.mean((out0 - 1)**2)  # LSGAN
-            elif self.gan_type == 'nsgan':
-                all1 = Variable(torch.ones_like(
-                    out0.data).cuda(), requires_grad=False)
-                loss += torch.mean(F.binary_cross_entropy(F.sigmoid(out0), all1))
-            else:
-                assert 0, "Unsupported GAN type: {}".format(self.gan_type)
+        for out0 in outs0:
+            loss += F.mse_loss(out0, torch.ones_like(out0))
         return loss
 
 ##################################################################################
@@ -98,27 +75,22 @@ class AdaINGen(nn.Module):
     # AdaIN auto-encoder architecture
     def __init__(self, input_dim, params):
         super(AdaINGen, self).__init__()
-        dim = params['dim']
-        style_dim = params['style_dim']
-        n_downsample = params['n_downsample']
-        n_res = params['n_res']
-        activ = params['activ']
-        pad_type = params['pad_type']
-        mlp_dim = params['mlp_dim']
+        dim = params.dim
+        style_dim = params.style_dim
+        n_downsample = params.n_downsample
+        n_res = params.n_res
 
         # style encoder
         self.enc_style = StyleEncoder(
-            4, input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type)
+            4, input_dim, dim, style_dim)
 
         # content encoder
         self.enc_content = ContentEncoder(
-            n_downsample, n_res, input_dim, dim, 'in', activ, pad_type=pad_type)
-        self.dec = Decoder(n_downsample, n_res, self.enc_content.output_dim,
-                           input_dim, res_norm='adain', activ=activ, pad_type=pad_type)
+            n_downsample, n_res, input_dim, dim)
 
-        # MLP to generate AdaIN parameters
-        self.mlp = MLP(style_dim, self.get_num_adain_params(
-            self.dec), mlp_dim, 3, norm='none', activ=activ)
+        self.dec = Decoder(n_downsample, n_res,
+                           self.enc_content.output_dim,
+                           input_dim)
 
     def forward(self, images):
         # reconstruct an image
@@ -134,19 +106,8 @@ class AdaINGen(nn.Module):
 
     def decode(self, content, style):
         # decode content and style codes to an image
-        adain_params = self.mlp(style)
-        self.assign_adain_params(adain_params, self.dec)
         images = self.dec(content)
         return images
-
-    def assign_adain_params(self, adain_params, model):
-        # assign the adain_params to the AdaIN layers in model
-        pass
-
-    def get_num_adain_params(self, model):
-        # return the number of AdaIN parameters needed by the model
-        num_adain_params = 0
-        return num_adain_params
 
 
 ##################################################################################
@@ -154,18 +115,15 @@ class AdaINGen(nn.Module):
 ##################################################################################
 
 class StyleEncoder(nn.Module):
-    def __init__(self, n_downsample, input_dim, dim, style_dim, norm, activ, pad_type):
+    def __init__(self, n_downsample, input_dim, dim, style_dim):
         super(StyleEncoder, self).__init__()
         self.model = []
-        self.model += [Conv2dBlock(input_dim, dim, 7, 1, 3,
-                                   norm=norm, activation=activ, pad_type=pad_type)]
+        self.model += [Conv2dBlock(input_dim, dim, 7, 1, 3)]
         for i in range(2):
-            self.model += [Conv2dBlock(dim, 2 * dim, 4, 2, 1,
-                                       norm=norm, activation=activ, pad_type=pad_type)]
+            self.model += [Conv2dBlock(dim, 2 * dim, 4, 2, 1)]
             dim *= 2
         for i in range(n_downsample - 2):
-            self.model += [Conv2dBlock(dim, dim, 4, 2, 1,
-                                       norm=norm, activation=activ, pad_type=pad_type)]
+            self.model += [Conv2dBlock(dim, dim, 4, 2, 1)]
         self.model += [nn.AdaptiveAvgPool2d(1)]  # global average pooling
         self.model += [nn.Conv2d(dim, style_dim, 1, 1, 0)]
         self.model = nn.Sequential(*self.model)
@@ -176,19 +134,16 @@ class StyleEncoder(nn.Module):
 
 
 class ContentEncoder(nn.Module):
-    def __init__(self, n_downsample, n_res, input_dim, dim, norm, activ, pad_type):
+    def __init__(self, n_downsample, n_res, input_dim, dim):
         super(ContentEncoder, self).__init__()
         self.model = []
-        self.model += [Conv2dBlock(input_dim, dim, 7, 1, 3,
-                                   norm=norm, activation=activ, pad_type=pad_type)]
+        self.model += [Conv2dBlock(input_dim, dim, 7, 1, 3)]
         # downsampling blocks
         for i in range(n_downsample):
-            self.model += [Conv2dBlock(dim, 2 * dim, 4, 2, 1,
-                                       norm=norm, activation=activ, pad_type=pad_type)]
+            self.model += [Conv2dBlock(dim, 2 * dim, 4, 2, 1)]
             dim *= 2
         # residual blocks
-        self.model += [ResBlocks(n_res, dim, norm=norm,
-                                 activation=activ, pad_type=pad_type)]
+        self.model += [ResBlocks(n_res, dim)]
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim
 
@@ -197,21 +152,19 @@ class ContentEncoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, n_upsample, n_res, dim, output_dim, res_norm='adain', activ='relu', pad_type='zero'):
+    def __init__(self, n_upsample, n_res, dim, output_dim):
         super(Decoder, self).__init__()
 
         self.model = []
         # AdaIN residual blocks
-        self.model += [ResBlocks(n_res, dim, res_norm,
-                                 activ, pad_type=pad_type)]
+        self.model += [ResBlocks(n_res, dim)]
         # upsampling blocks
         for i in range(n_upsample):
             self.model += [nn.Upsample(scale_factor=2),
-                           Conv2dBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)]
+                           Conv2dBlock(dim, dim // 2, 5, 1, 2)]
             dim //= 2
         # use reflection padding in the last conv layer
-        self.model += [Conv2dBlock(dim, output_dim, 7, 1, 3,
-                                   norm='none', activation='tanh', pad_type=pad_type)]
+        self.model += [Conv2dBlock(dim, output_dim, 7, 1, 3)]
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
@@ -223,34 +176,16 @@ class Decoder(nn.Module):
 
 
 class ResBlocks(nn.Module):
-    def __init__(self, num_blocks, dim, norm='in', activation='relu', pad_type='zero'):
+    def __init__(self, num_blocks, dim):
         super(ResBlocks, self).__init__()
         self.model = []
         for i in range(num_blocks):
-            self.model += [ResBlock(dim, norm=norm,
-                                    activation=activation, pad_type=pad_type)]
+            self.model += [ResBlock(dim)]
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
         return self.model(x)
 
-
-class MLP(nn.Module):
-    def __init__(self, input_dim, output_dim, dim, n_blk, norm='none', activ='relu'):
-
-        super(MLP, self).__init__()
-        self.model = []
-        self.model += [LinearBlock(input_dim, dim,
-                                   norm=norm, activation=activ)]
-        for i in range(n_blk - 2):
-            self.model += [LinearBlock(dim, dim, norm=norm, activation=activ)]
-        # no output activations
-        self.model += [LinearBlock(dim, output_dim,
-                                   norm='none', activation='none')]
-        self.model = nn.Sequential(*self.model)
-
-    def forward(self, x):
-        return self.model(x.view(x.size(0), -1))
 
 ##################################################################################
 # Basic Blocks
@@ -258,14 +193,11 @@ class MLP(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, dim, norm='in', activation='relu', pad_type='zero'):
+    def __init__(self, dim):
         super(ResBlock, self).__init__()
-
         model = []
-        model += [Conv2dBlock(dim, dim, 3, 1, 1, norm=norm,
-                              activation=activation, pad_type=pad_type)]
-        model += [Conv2dBlock(dim, dim, 3, 1, 1, norm=norm,
-                              activation='none', pad_type=pad_type)]
+        model += [Conv2dBlock(dim, dim, 3, 1, 1)]
+        model += [Conv2dBlock(dim, dim, 3, 1, 1)]
         self.model = nn.Sequential(*model)
 
     def forward(self, x):
@@ -277,133 +209,58 @@ class ResBlock(nn.Module):
 
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='relu', pad_type='zero'):
+                 padding=0):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
-        # initialize padding
-        if pad_type == 'reflect':
-            self.pad = nn.ReflectionPad2d(padding)
-        elif pad_type == 'replicate':
-            self.pad = nn.ReplicationPad2d(padding)
-        elif pad_type == 'zero':
-            self.pad = nn.ZeroPad2d(padding)
-        else:
-            assert 0, "Unsupported padding type: {}".format(pad_type)
-
-        # initialize normalization
-        norm_dim = output_dim
-        if norm == 'bn':
-            self.norm = nn.BatchNorm2d(norm_dim)
-        elif norm == 'in':
-            #self.norm = nn.InstanceNorm2d(norm_dim, track_running_stats=True)
-            self.norm = nn.InstanceNorm2d(norm_dim)
-        else:
-            assert 0, "Unsupported normalization: {}".format(norm)
-
-        # initialize activation
-        if activation == 'relu':
-            self.activation = nn.ReLU(inplace=True)
-        elif activation == 'lrelu':
-            self.activation = nn.LeakyReLU(0.2, inplace=True)
-        elif activation == 'prelu':
-            self.activation = nn.PReLU()
-        elif activation == 'selu':
-            self.activation = nn.SELU(inplace=True)
-        elif activation == 'tanh':
-            self.activation = nn.Tanh()
-        elif activation == 'none':
-            self.activation = None
-        else:
-            assert 0, "Unsupported activation: {}".format(activation)
-
+        self.pad = nn.ZeroPad2d(padding)
+        self.activation = nn.ReLU()
         self.conv = nn.Conv2d(input_dim, output_dim,
                               kernel_size, stride, bias=self.use_bias)
 
     def forward(self, x):
-        x = self.conv(self.pad(x))
-        if self.norm:
-            x = self.norm(x)
-        if self.activation:
-            x = self.activation(x)
+        x = self.pad(x)
+        x = self.conv(x)
+        x = self.activation(x)
         return x
 
 
 class LinearBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, norm='none', activation='relu'):
+    def __init__(self, input_dim, output_dim):
         super(LinearBlock, self).__init__()
         use_bias = True
         # initialize fully connected layer
         self.fc = nn.Linear(input_dim, output_dim, bias=use_bias)
-
-        # initialize normalization
-        norm_dim = output_dim
-        if norm == 'bn':
-            self.norm = nn.BatchNorm1d(norm_dim)
-        elif norm == 'in':
-            self.norm = nn.InstanceNorm1d(norm_dim)
-        else:
-            assert 0, "Unsupported normalization: {}".format(norm)
-
-        # initialize activation
-        if activation == 'relu':
-            self.activation = nn.ReLU(inplace=True)
-        elif activation == 'lrelu':
-            self.activation = nn.LeakyReLU(0.2, inplace=True)
-        elif activation == 'prelu':
-            self.activation = nn.PReLU()
-        elif activation == 'selu':
-            self.activation = nn.SELU(inplace=True)
-        elif activation == 'tanh':
-            self.activation = nn.Tanh()
-        elif activation == 'none':
-            self.activation = None
-        else:
-            assert 0, "Unsupported activation: {}".format(activation)
+        self.activation = nn.ReLU()
 
     def forward(self, x):
         out = self.fc(x)
-        if self.norm:
-            out = self.norm(out)
-        if self.activation:
-            out = self.activation(out)
+        out = self.activation(out)
         return out
 
 
-class MUNIT_Trainer(nn.Module):
+class MUNIT(nn.Module):
     def __init__(self, opts):
-        super(MUNIT_Trainer, self).__init__()
-        lr = opts['lr']
+        super(MUNIT, self).__init__()
+
         # Initiate the networks
         # auto-encoder for domain a
-        self.gen_a = AdaINGen(
-            opts['input_dim_a'], opts['gen'])
+        self.gen_a = AdaINGen(1, opts.gen)
         # auto-encoder for domain b
-        self.gen_b = AdaINGen(
-            opts['input_dim_b'], opts['gen'])
+        self.gen_b = AdaINGen(1, opts.gen)
         # discriminator for domain a
-        self.dis_a = MsImageDis(
-            opts['input_dim_a'], opts['dis'])
+        self.dis_a = MsImageDis(1, opts.dis)
         # discriminator for domain b
-        self.dis_b = MsImageDis(
-            opts['input_dim_b'], opts['dis'])
-        self.instancenorm = nn.InstanceNorm2d(512, affine=False)
-        self.style_dim = opts['gen']['style_dim']
+        self.dis_b = MsImageDis(1, opts.dis)
+
+        self.style_dim = opts.gen.style_dim
 
         # fix the noise used in sampling
-        display_size = int(opts['display_size'])
-        self.s_a = torch.randn(display_size, self.style_dim, 1, 1).cuda()
-        self.s_b = torch.randn(display_size, self.style_dim, 1, 1).cuda()
-
-        # Setup the optimizers
-        beta1 = opts['beta1']
-        beta2 = opts['beta2']
-        dis_params = list(self.dis_a.parameters()) + \
-            list(self.dis_b.parameters())
-        gen_params = list(self.gen_a.parameters()) + \
-            list(self.gen_b.parameters())
+        display_size = int(opts.display_size)
+        self.s_a = torch.randn(display_size, self.style_dim, 1, 1)
+        self.s_b = torch.randn(display_size, self.style_dim, 1, 1)
 
         # Network weight initialization
-        self.apply(weights_init(opts['init']))
+        self.apply(weights_init('gaussian'))
         self.dis_a.apply(weights_init('gaussian'))
         self.dis_b.apply(weights_init('gaussian'))
 
@@ -411,28 +268,56 @@ class MUNIT_Trainer(nn.Module):
         return torch.mean(torch.abs(input - target))
 
     def forward(self, x_a, x_b):
+        device = x_a.device
         self.eval()
-        s_a = Variable(self.s_a)
-        s_b = Variable(self.s_b)
-        c_a, s_a_fake = self.gen_a.encode(x_a)
-        c_b, s_b_fake = self.gen_b.encode(x_b)
-        x_ba = self.gen_a.decode(c_b, s_a)
-        x_ab = self.gen_b.decode(c_a, s_b)
+        s_a1 = self.s_a.to(device)
+        s_b1 = self.s_b.to(device)
+        s_a2 = torch.randn(x_a.size(0), self.style_dim, 1, 1).to(device)
+        s_b2 = torch.randn(x_b.size(0), self.style_dim, 1, 1).to(device)
+        x_a_recon, x_b_recon, x_ba1, x_ba2, x_ab1, x_ab2 = [], [], [], [], [], []
+        for i in range(x_a.size(0)):
+            c_a, s_a_fake = self.gen_a.encode(x_a[i].unsqueeze(0))
+            c_b, s_b_fake = self.gen_b.encode(x_b[i].unsqueeze(0))
+            x_a_recon.append(self.gen_a.decode(c_a, s_a_fake))
+            x_b_recon.append(self.gen_b.decode(c_b, s_b_fake))
+            x_ba1.append(self.gen_a.decode(c_b, s_a1[i].unsqueeze(0)))
+            x_ba2.append(self.gen_a.decode(c_b, s_a2[i].unsqueeze(0)))
+            x_ab1.append(self.gen_b.decode(c_a, s_b1[i].unsqueeze(0)))
+            x_ab2.append(self.gen_b.decode(c_a, s_b2[i].unsqueeze(0)))
+        x_a_recon, x_b_recon = torch.cat(x_a_recon), torch.cat(x_b_recon)
+        x_ba1, x_ba2 = torch.cat(x_ba1), torch.cat(x_ba2)
+        x_ab1, x_ab2 = torch.cat(x_ab1), torch.cat(x_ab2)
         self.train()
-        return x_ab, x_ba
 
-    def backward_G(self, x_a, x_b, opts):
-        s_a = Variable(torch.randn(x_a.size(0), self.style_dim, 1, 1).cuda())
-        s_b = Variable(torch.randn(x_b.size(0), self.style_dim, 1, 1).cuda())
+        return {
+            "x_a": x_a,
+            "x_a_recon": x_a_recon,
+            "x_ab1": x_ab1,
+            "x_ab2": x_ab2,
+            "x_b": x_b,
+            "x_b_recon": x_b_recon,
+            "x_ba1": x_ba1,
+            "x_ba2": x_ba2
+        }
+
+    def forward_G(self, x_a, x_b, opts):
+        device = opts.device
+
+        s_a = torch.randn(x_a.size(0), self.style_dim, 1, 1).to(device)
+        s_b = torch.randn(x_b.size(0), self.style_dim, 1, 1).to(device)
+
         # encode
         c_a, s_a_prime = self.gen_a.encode(x_a)
         c_b, s_b_prime = self.gen_b.encode(x_b)
+
         # decode (within domain)
         x_a_recon = self.gen_a.decode(c_a, s_a_prime)
         x_b_recon = self.gen_b.decode(c_b, s_b_prime)
+
         # decode (cross domain)
         x_ba = self.gen_a.decode(c_b, s_a)
         x_ab = self.gen_b.decode(c_a, s_b)
+
         # encode again
         c_b_recon, s_a_recon = self.gen_a.encode(x_ba)
         c_a_recon, s_b_recon = self.gen_b.encode(x_ab)
@@ -450,55 +335,50 @@ class MUNIT_Trainer(nn.Module):
         self.loss_gen_adv_b = self.dis_b.calc_gen_loss(x_ab)
 
         # total loss
-        self.loss_gen_total = opts['gan_w'] * self.loss_gen_adv_a + \
-            opts['gan_w'] * self.loss_gen_adv_b + \
-            opts['recon_x_w'] * self.loss_gen_recon_x_a + \
-            opts['recon_s_w'] * self.loss_gen_recon_s_a + \
-            opts['recon_c_w'] * self.loss_gen_recon_c_a + \
-            opts['recon_x_w'] * self.loss_gen_recon_x_b + \
-            opts['recon_s_w'] * self.loss_gen_recon_s_b + \
-            opts['recon_c_w'] * self.loss_gen_recon_c_b
+        self.loss = opts.gan_w * self.loss_gen_adv_a + \
+            opts.gan_w * self.loss_gen_adv_b + \
+            opts.recon_x_w * self.loss_gen_recon_x_a + \
+            opts.recon_s_w * self.loss_gen_recon_s_a + \
+            opts.recon_c_w * self.loss_gen_recon_c_a + \
+            opts.recon_x_w * self.loss_gen_recon_x_b + \
+            opts.recon_s_w * self.loss_gen_recon_s_b + \
+            opts.recon_c_w * self.loss_gen_recon_c_b
 
-        self.loss_gen_total.backward()
         return {
-            'loss': self.loss_gen_total,
+            'loss': self.loss,
         }
 
-    def forward(self, x_a, x_b):
-        s_a1 = Variable(self.s_a)
-        s_b1 = Variable(self.s_b)
-        s_a2 = Variable(torch.randn(x_a.size(0), self.style_dim, 1, 1).cuda())
-        s_b2 = Variable(torch.randn(x_b.size(0), self.style_dim, 1, 1).cuda())
-        x_a_recon, x_b_recon, x_ba1, x_ba2, x_ab1, x_ab2 = [], [], [], [], [], []
-        for i in range(x_a.size(0)):
-            c_a, s_a_fake = self.gen_a.encode(x_a[i].unsqueeze(0))
-            c_b, s_b_fake = self.gen_b.encode(x_b[i].unsqueeze(0))
-            x_a_recon.append(self.gen_a.decode(c_a, s_a_fake))
-            x_b_recon.append(self.gen_b.decode(c_b, s_b_fake))
-            x_ba1.append(self.gen_a.decode(c_b, s_a1[i].unsqueeze(0)))
-            x_ba2.append(self.gen_a.decode(c_b, s_a2[i].unsqueeze(0)))
-            x_ab1.append(self.gen_b.decode(c_a, s_b1[i].unsqueeze(0)))
-            x_ab2.append(self.gen_b.decode(c_a, s_b2[i].unsqueeze(0)))
-        x_a_recon, x_b_recon = torch.cat(x_a_recon), torch.cat(x_b_recon)
-        x_ba1, x_ba2 = torch.cat(x_ba1), torch.cat(x_ba2)
-        x_ab1, x_ab2 = torch.cat(x_ab1), torch.cat(x_ab2)
-        return x_a, x_a_recon, x_ab1, x_ab2, x_b, x_b_recon, x_ba1, x_ba2
+    def forward_D(self, x_a, x_b, opts):
+        device = opts.device
 
-    def backward_D(self, x_a, x_b, opts):
-        s_a = Variable(torch.randn(x_a.size(0), self.style_dim, 1, 1).cuda())
-        s_b = Variable(torch.randn(x_b.size(0), self.style_dim, 1, 1).cuda())
+        s_a = torch.randn(x_a.size(0), self.style_dim, 1, 1).to(device)
+        s_b = torch.randn(x_b.size(0), self.style_dim, 1, 1).to(device)
+
         # encode
         c_a, _ = self.gen_a.encode(x_a)
         c_b, _ = self.gen_b.encode(x_b)
+
         # decode (cross domain)
         x_ba = self.gen_a.decode(c_b, s_a)
         x_ab = self.gen_b.decode(c_a, s_b)
+
         # D loss
         self.loss_dis_a = self.dis_a.calc_dis_loss(x_ba.detach(), x_a)
         self.loss_dis_b = self.dis_b.calc_dis_loss(x_ab.detach(), x_b)
-        self.loss_dis_total = opts['gan_w'] * \
-            self.loss_dis_a + opts['gan_w'] * self.loss_dis_b
-        self.loss_dis_total.backward()
+
+        self.loss = opts.gan_w * (self.loss_dis_a + self.loss_dis_b)
+
         return {
-            'loss': self.loss_dis_total
+            'loss': self.loss
         }
+
+    def d_params(self):
+        return list(self.dis_a.parameters()) + list(self.dis_b.parameters())
+
+    def g_params(self):
+        return list(self.gen_a.parameters()) + list(self.gen_b.parameters())
+
+
+def get_model(opts):
+    model_list = [MUNIT]
+    return get_class(model_list, opts.model)(opts)

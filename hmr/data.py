@@ -37,11 +37,13 @@ def load_corpus(data_dir, typ):
     return df
 
 
-def default_transform(size=(224, 224)):
+def default_transform(opts):
     return transforms.Compose([
-        transforms.Resize(size),
+        transforms.Resize(opts.base_size),
+        transforms.RandomCrop((opts.crop_size)),
+        transforms.ColorJitter(0.5, 0.5, 0.5),
         transforms.ToTensor(),
-        transforms.Normalize([0.5], [1])
+        transforms.Normalize([0.5], [1]),
     ])
 
 
@@ -57,7 +59,7 @@ class MathDataset(Dataset):
         else:
             corpus['image'] = corpus['printed']
 
-        corpus = corpus[['image', 'caption']]
+        corpus = corpus[['id', 'image', 'caption']]
         self.samples = corpus.to_dict('record')
 
     @staticmethod
@@ -89,12 +91,14 @@ class MathDataset(Dataset):
         image = [sample['image'] for sample in batch]
         caption = [sample['caption'] for sample in batch]
         len_ = [sample['len'] for sample in batch]
+        id_ = [sample['id'] for sample in batch]
 
         ret = {}
         pad_ix = vocab.word2index('<pad>')
         ret['image'] = torch.stack(image)
         ret['caption'] = pad_sequence(caption, False, pad_ix)
         ret['len'] = torch.tensor(len_)
+        ret['id'] = id_
 
         return ret
 
@@ -106,7 +110,7 @@ def main():
     dl = DataLoader(dataset, batch_size=8, shuffle=False,
                     collate_fn=MathDataset.collate_fn)
     for sample in dl:
-        print({k: v.shape for k, v in sample.items()})
+        print({k: v.shape for k, v in sample.items() if hasattr(v, 'shape')})
         break
 
 
