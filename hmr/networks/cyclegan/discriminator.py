@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class NLayerD(nn.Module):
     """Defines a PatchGAN discriminator"""
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, keep_channel=False):
+    def __init__(self, input_nc, output_nc=1, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d):
         """Construct a PatchGAN discriminator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -48,7 +48,7 @@ class NLayerD(nn.Module):
         ]
 
         # output 1 channel prediction map
-        sequence += [nn.Conv2d(ndf * nf_mult, ndf * nf_mult if keep_channel else 1,
+        sequence += [nn.Conv2d(ndf * nf_mult, output_nc,
                                kernel_size=kw, stride=1, padding=padw)]
         self.model = nn.Sequential(*sequence)
 

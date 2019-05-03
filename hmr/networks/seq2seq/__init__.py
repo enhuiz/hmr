@@ -68,11 +68,5 @@ class Identity(nn.Module):
 class Seq2Seq(EncoderDecoder):
     def __init__(self, opts):
         super().__init__()
-        self.encoder = NLayerD(1, keep_channel=True)
-        self.encoder.fc = Identity()
+        self.encoder = NLayerD(1, output_nc=opts.decoder.input_dim)
         self.decoder = MultiHeadAttnGRU(opts.decoder, vocab.size())
-
-
-def get_model(opts):
-    model_list = [Seq2Seq]
-    return get_class(model_list, opts.model)(opts)

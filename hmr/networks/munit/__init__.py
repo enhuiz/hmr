@@ -377,8 +377,3 @@ class MUNIT(nn.Module):
 
     def g_params(self):
         return list(self.gen_a.parameters()) + list(self.gen_b.parameters())
-
-
-def get_model(opts):
-    model_list = [MUNIT]
-    return get_class(model_list, opts.model)(opts)
