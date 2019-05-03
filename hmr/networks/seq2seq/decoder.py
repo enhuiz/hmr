@@ -54,7 +54,7 @@ class MultiHeadAttnGRU(nn.Module):
         self.mha = MultiHeadAttn(self.heads, 2 * self.hidden_dim,
                                  self.input_dim, self.input_dim, self.hidden_dim)
 
-        self.gru = nn.GRU(self.hidden_dim, self.hidden_dim)
+        self.gru = nn.GRU(self.input_dim, self.hidden_dim)
         self.fc = nn.Linear(self.hidden_dim, self.output_dim)
 
     @staticmethod
