@@ -1,0 +1,28 @@
+# meta
+name: CycleGAN/crohme
+model: ckpt/CycleGAN/mnist/5.pth
+base_size: [300, 300]
+crop_size: [224, 224]
+
+# data
+data_dir: data/crohme
+
+# train
+device: cuda
+epochs: 10
+lr: 0.001
+beta1: 0.5
+beta2: 0.999
+batch_size: 8
+mean: [0.5]
+lambd_x: 5
+lambd_y: 5
+continued: true
+
+# log
+sample_every: 20
+display_size: 6
+
+# model
+g_conv_dim: 32
+d_conv_dim: 32
