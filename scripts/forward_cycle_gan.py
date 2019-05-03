@@ -22,7 +22,7 @@ from PIL import Image
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from hmr.data import MathDataset, default_transform
+from hmr.data import MathDataset
 from hmr.networks import cyclegan
 
 
@@ -35,7 +35,7 @@ def get_opts():
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--mean', type=float, nargs=1, default=[0.5])
-    parser.add_argument('--size', type=int, nargs=2, default=[224, 224])
+    parser.add_argument('--base-size', type=int, nargs=2, default=[300, 300])
     opts = parser.parse_args()
     return opts
 
@@ -70,6 +70,15 @@ def load_model(opts):
     return model
 
 
+def create_transform(opts):
+    return transforms.Compose([
+        transforms.Resize(opts.base_size),
+        transforms.ColorJitter(0.5, 0.5, 0.5),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [1]),
+    ])
+
+
 def main():
     opts = get_opts()
     os.makedirs(opts.out_dir, exist_ok=True)
@@ -79,7 +88,7 @@ def main():
     model = model.to(opts.device)
 
     ds = MathDataset(opts.data_dir, opts.type,
-                     default_transform(opts.size),
+                     create_transform(opts),
                      written=True)
 
     dl = DataLoader(ds,

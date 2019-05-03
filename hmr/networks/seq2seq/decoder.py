@@ -43,18 +43,19 @@ class MultiHeadAttn(nn.Module):
 
 
 class MultiHeadAttnGRU(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, heads=4):
+    def __init__(self, opts, output_dim):
         super(MultiHeadAttnGRU, self).__init__()
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
+        self.input_dim = opts.input_dim
+        self.hidden_dim = opts.hidden_dim
         self.output_dim = output_dim
+        self.heads = opts.heads
 
-        self.embedding = nn.Embedding(output_dim, hidden_dim)
-        self.mha = MultiHeadAttn(heads, 2 * hidden_dim,
-                                 input_dim, input_dim, hidden_dim)
+        self.embedding = nn.Embedding(output_dim, self.hidden_dim)
+        self.mha = MultiHeadAttn(self.heads, 2 * self.hidden_dim,
+                                 self.input_dim, self.input_dim, self.hidden_dim)
 
-        self.gru = nn.GRU(hidden_dim, hidden_dim)
-        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.gru = nn.GRU(self.hidden_dim, self.hidden_dim)
+        self.fc = nn.Linear(self.hidden_dim, self.output_dim)
 
     @staticmethod
     def assert_sorted(l, descending=False):

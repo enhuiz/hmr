@@ -70,8 +70,7 @@ class Seq2Seq(EncoderDecoder):
         super().__init__()
         self.encoder = NLayerD(1, keep_channel=True)
         self.encoder.fc = Identity()
-        self.decoder = MultiHeadAttnGRU(
-            512, 256, vocab.size(), heads=opts.heads)
+        self.decoder = MultiHeadAttnGRU(opts.decoder, vocab.size())
 
 
 def get_model(opts):

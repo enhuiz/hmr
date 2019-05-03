@@ -37,16 +37,6 @@ def load_corpus(data_dir, typ):
     return df
 
 
-def default_transform(opts):
-    return transforms.Compose([
-        transforms.Resize(opts.base_size),
-        transforms.RandomCrop((opts.crop_size)),
-        transforms.ColorJitter(0.5, 0.5, 0.5),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [1]),
-    ])
-
-
 class MathDataset(Dataset):
     def __init__(self, data_dir, typ, transform, written=False):
         self.transform = transform
@@ -105,7 +95,7 @@ class MathDataset(Dataset):
 
 def main():
     dataset = MathDataset('data/crohme', 'train',
-                          default_transform(80), written=False)
+                          transforms.ToTensor(), written=False)
     print('vocab len', vocab.size())
     dl = DataLoader(dataset, batch_size=8, shuffle=False,
                     collate_fn=MathDataset.collate_fn)

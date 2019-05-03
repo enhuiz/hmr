@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, ConcatDataset, Subset
+from torchvision import transforms
 import matplotlib.pyplot as plt
 import tqdm
 
@@ -18,7 +19,7 @@ from tensorboardX import SummaryWriter
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from hmr.data import MathDataset, default_transform
+from hmr.data import MathDataset
 from hmr import networks
 
 from utils import *
@@ -108,13 +109,23 @@ def load_model(opts):
     return model, epoch0
 
 
+def create_transform(opts):
+    return transforms.Compose([
+        transforms.Resize(opts.base_size),
+        transforms.RandomCrop((opts.crop_size)),
+        transforms.ColorJitter(0.5, 0.5, 0.5),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [1]),
+    ])
+
+
 def load_dataloaders(opts):
     wds = MathDataset(opts.data_dir, 'train',
-                      default_transform(opts),
+                      create_transform(opts),
                       written=True)
 
     pds = MathDataset(opts.data_dir, 'train',
-                      default_transform(opts),
+                      create_transform(opts),
                       written=False)
 
     assert len(pds) == len(wds)
