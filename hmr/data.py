@@ -9,7 +9,39 @@ from torch.utils.data import Dataset, DataLoader, ConcatDataset, Subset
 from torchvision import transforms
 from torch.nn.utils.rnn import pad_sequence
 
-from hmr import vocab
+
+class Vocab():
+    def __init__(self, data_dir=None):
+        if data_dir is not None:
+            self.load(data_dir)
+
+    def load(self, data_dir):
+        path = os.path.join(data_dir, 'annotations', 'vocab.csv')
+
+        with open(path, 'r') as f:
+            content = f.read().strip()
+        words = content.split('\n')
+        words = set(words)
+
+        words.add('<s>')
+        words.add('</s>')
+        words.add('<pad>')
+        words.add('<unk>')
+
+        self.words = sorted(words)
+        self.inv_words = {w: i for i, w in enumerate(self.words)}
+
+    def word2index(self, w):
+        return self.inv_words[w]
+
+    def index2word(self, i):
+        return self.words[i]
+
+    def __len__(self):
+        return len(self.words)
+
+
+vocab = Vocab()
 
 
 def load_corpus(data_dir, typ):
@@ -41,7 +73,7 @@ class MathDataset(Dataset):
     def __init__(self, data_dir, typ, transform, written=False):
         self.transform = transform
 
-        vocab.init_vocab(data_dir)
+        vocab.load(data_dir)
         corpus = load_corpus(data_dir, typ)
 
         if written:
@@ -96,7 +128,7 @@ class MathDataset(Dataset):
 def main():
     dataset = MathDataset('data/crohme', 'train',
                           transforms.ToTensor(), written=False)
-    print('vocab len', vocab.size())
+    print('vocab len', len(vocab))
     dl = DataLoader(dataset, batch_size=8, shuffle=False,
                     collate_fn=MathDataset.collate_fn)
     for sample in dl:

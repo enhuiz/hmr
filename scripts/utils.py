@@ -32,15 +32,16 @@ def flatten_dict(d):
     return ret
 
 
+def normalize(x):
+    return (x - x.min()) / (x.max() - x.min() + 1e-20)
+
+
 def visualize(model, ws, ps, writer, iterations, opts):
     real_X = ws['image'][:opts.display_size].to(opts.device)
     real_Y = ps['image'][:opts.display_size].to(opts.device)
     model.eval()
     out = model(real_X, real_Y)
     model.train()
-
-    def normalize(x):
-        return (x - x.min()) / (x.max() - x.min() + 1e-20)
 
     def select(x):
         imgs = [normalize(x) for x in x]

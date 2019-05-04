@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hmr import vocab
+from hmr.data import vocab
 
 
 class MultiHeadAttn(nn.Module):
-    def __init__(self, heads, d_q, d_v, d_k, d_model, dropout=0.1):
+    def __init__(self, heads, d_q, d_k, d_v, d_model, dropout=0.1):
         super().__init__()
         self.d_model = d_model
         self.d_k = d_model // heads
@@ -42,17 +42,19 @@ class MultiHeadAttn(nn.Module):
         return output, score
 
 
-class MultiHeadAttnGRU(nn.Module):
+class MultiHeadAttnRNN(nn.Module):
     def __init__(self, opts, output_dim):
-        super(MultiHeadAttnGRU, self).__init__()
+        super(MultiHeadAttnRNN, self).__init__()
         self.input_dim = opts.input_dim
         self.hidden_dim = opts.hidden_dim
         self.output_dim = output_dim
         self.heads = opts.heads
 
         self.embedding = nn.Embedding(output_dim, self.hidden_dim)
+
         self.mha = MultiHeadAttn(self.heads, 2 * self.hidden_dim,
-                                 self.input_dim, self.input_dim, self.hidden_dim)
+                                 self.input_dim, self.input_dim,
+                                 self.input_dim)
 
         self.gru = nn.GRU(self.input_dim, self.hidden_dim)
         self.fc = nn.Linear(self.hidden_dim, self.output_dim)

@@ -23,11 +23,9 @@ torch.backends.cudnn.benchmark = True
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from hmr import vocab
 from hmr import networks
-from hmr.data import MathDataset
-
-from utils import get_config, get_epoch_num
+from hmr.data import vocab, MathDataset
+from utils import get_config, get_epoch_num, normalize
 
 
 def get_opts():
@@ -43,19 +41,18 @@ def visualize(model, sample, writer, iterations, opts):
     captions = sample['caption'][:len_, :1].to(opts.device)
 
     model.eval()
-    out = model.decode(images)
+    with torch.no_grad():
+        out = model.decode(images)
     model.train()
 
     logp = out['logp']
     predictions = torch.argmax(logp, dim=2)
 
-    print(captions.shape, predictions.shape)
     predictions = predictions.squeeze(1).tolist()
     captions = captions.squeeze(1).tolist()
 
     ref = list(map(vocab.index2word, captions))
     hyp = list(map(vocab.index2word, predictions))
-
     bleu = sentence_bleu(ref, hyp)
     ed = edit_distance(ref, hyp)
 
@@ -63,13 +60,14 @@ def visualize(model, sample, writer, iterations, opts):
         bleu, ed, ' '.join(ref), ' '.join(hyp)))
 
     writer.add_text('sentence', ' '.join(ref) +
-                    '\n' + ' '.join(hyp),
-                    iterations)
-    writer.add_image('image', images[0], iterations)
+                    '\n' + ' '.join(hyp), iterations)
+
+    writer.add_image('image', normalize(images[0]), iterations)
 
     weights = out['weights'][:, 0]
     for t in range(len(weights)):
-        writer.add_image('weight-{}'.format(iterations), weights[t:t + 1], t)
+        writer.add_image('weights-{}'.format(t),
+                         normalize(weights[t:t + 1]), iterations)
 
 
 def adjust_lr(optimizer, interations, total_iterations, opts):
@@ -112,6 +110,7 @@ def train(model, optimizer, dl, opts):
                 epoch + 1, opts.epochs, lr, out['loss'])
             pbar.set_description(description)
 
+            writer.add_scalar('loss', out['loss'].item(), iterations)
             if step % opts.sample_every == 0:
                 if visual_sample is None:
                     visual_sample = sample
