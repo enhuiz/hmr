@@ -24,7 +24,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr import networks
 from hmr.data import vocab, MathDataset
-from utils import get_config, get_epoch_num, normalize, add_mask
+from utils import get_config, get_epoch_num, normalize, add_mask, calculate_scores, adjust_lr
 
 
 def get_opts():
@@ -44,7 +44,7 @@ def visualize(model, sample, writer, iterations, opts):
         out = model.decode(images)
     model.train()
 
-    outputs = out['outputs']
+    outputs = out['outputs'][0]
     predictions = torch.argmax(outputs, dim=2)
 
     predictions = predictions.squeeze(1).tolist()
@@ -53,29 +53,19 @@ def visualize(model, sample, writer, iterations, opts):
     ref = list(map(vocab.index2word, annotations))
     hyp = list(map(vocab.index2word, predictions))
 
-    ed = edit_distance(ref, hyp)
-
-    print('ED: {}, WER: {}\nRef: {}\nHyp: {}'.format(
-        ed, ed / len(ref), ' '.join(ref), ' '.join(hyp)))
-
-    writer.add_text('sentence', ' '.join(ref) +
-                    '\n' + ' '.join(hyp), iterations)
+    content = 'Ref: {}; Hyp: {}'.format(' '.join(ref), ' '.join(hyp))
+    writer.add_text('sentence', content, iterations)
+    print(calculate_scores([ref], [hyp]))
+    print(content)
 
     image = normalize(images[0].cpu(), opts)
     writer.add_image('image', image, iterations)
 
-    weights = out['weights'][:, 0]
+    weights = out['weights'][0][:, 0]
     for t, weight in enumerate(weights):
         weight = weight.unsqueeze(0).cpu()
         masked = add_mask(image, weight)
         writer.add_image('weights-{}'.format(t), masked, iterations)
-
-
-def adjust_lr(optimizer, interations, total_iterations, opts):
-    lr = opts.lr * (1 - interations / total_iterations) ** 0.5
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
 
 
 def train(model, optimizer, dl, opts):
@@ -120,15 +110,6 @@ def train(model, optimizer, dl, opts):
 
         path = os.path.join(ckpt_dir, '{}.pth'.format(epoch + 1))
         torch.save(model, path)
-
-
-def get_epoch_num(path):
-    epoch = None
-    try:
-        epoch = int(os.path.basename(path).split('.')[0])
-    except:
-        pass
-    return epoch
 
 
 def load_model(opts):
