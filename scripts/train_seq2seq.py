@@ -47,11 +47,11 @@ def visualize(model, sample, writer, iterations, opts):
     outputs = out['outputs'][0]
     predictions = torch.argmax(outputs, dim=2)
 
-    predictions = predictions.squeeze(1).tolist()
-    annotations = annotations.squeeze(1).tolist()
+    prediction = predictions.squeeze(1).tolist()
+    annotation = annotations.squeeze(1).tolist()
 
-    ref = list(map(vocab.index2word, annotations))
-    hyp = list(map(vocab.index2word, predictions))
+    hyp = vocab.decode(prediction)
+    ref = vocab.decode(annotation)
 
     content = 'Ref: {}; Hyp: {}'.format(' '.join(ref), ' '.join(hyp))
     writer.add_text('sentence', content, iterations)

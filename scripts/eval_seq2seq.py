@@ -34,7 +34,7 @@ def get_opts():
 
 def write_sentences(path, sentences):
     with open(path, 'w') as f:
-        f.write('\n'.join(sentences))
+        f.write('\n'.join(map(lambda s: ' '.join(s), sentences)))
 
 
 def evaluate(model, dl, opts):
@@ -58,8 +58,8 @@ def evaluate(model, dl, opts):
             hyps.append(prediction.tolist())
             refs.append(annotation.tolist())
 
-    refs = [' '.join(map(vocab.index2word, ref)) for ref in refs]
-    hyps = [' '.join(map(vocab.index2word, hyp)) for hyp in hyps]
+    refs = [vocab.decode(ref) for ref in refs]
+    hyps = [vocab.decode(hyp) for hyp in hyps]
 
     scores = calculate_scores(refs, hyps)
 

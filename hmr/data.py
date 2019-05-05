@@ -23,12 +23,14 @@ class Vocab():
         words = content.split('\n')
         words = set(words)
 
-        words.add('<s>')
-        words.add('</s>')
-        words.add('<pad>')
-        words.add('<unk>')
+        extra = set()
+        extra.add('<s>')
+        extra.add('</s>')
+        extra.add('<pad>')
+        extra.add('<unk>')
 
-        self.words = sorted(words)
+        self.extra = extra
+        self.words = sorted(words.union(extra))
         self.inv_words = {w: i for i, w in enumerate(self.words)}
 
     def word2index(self, w):
@@ -37,7 +39,14 @@ class Vocab():
         return self.inv_words[w]
 
     def index2word(self, i):
-        return self.words[i]
+        w = self.words[i]
+        return w
+
+    def not_extra(self, w):
+        return w not in self.extra
+
+    def decode(self, ids):
+        return [*filter(self.not_extra, map(self.index2word, ids))]
 
     def __len__(self):
         return len(self.words)
