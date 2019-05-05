@@ -66,12 +66,12 @@ class MultiHeadAttnRNN(nn.Module):
             l = l[::-1]
         assert all(l[i] <= l[i + 1] for i in range(len(l) - 1))
 
-    def forward(self, memory, output_len):
+    def forward(self, memory, annotations=None, output_lens=None, max_output_len=100):
         """
          Args:
-             memory: encoder_outputs, (memory_len, bs, input_dim), sorted by output_len
+             memory: encoder_outputs, (memory_len, bs, input_dim), sorted by output_lens
          """
-        self.assert_sorted(output_len, descending=True)
+        self.assert_sorted(output_lens, descending=True)
 
         device = memory.device
         memory_len, bs = memory.shape[:2]
@@ -79,7 +79,7 @@ class MultiHeadAttnRNN(nn.Module):
         output = torch.zeros(1, bs, self.output_dim).to(device)
         hidden = torch.zeros(1, bs, self.hidden_dim).to(device)
 
-        max_output_len = max(output_len)
+        max_output_len = max(output_lens)
 
         outputs = torch.zeros(max_output_len, bs,
                               self.output_dim).to(device)
@@ -89,24 +89,29 @@ class MultiHeadAttnRNN(nn.Module):
                              memory_len).to(device)
 
         for i in range(max_output_len):
-            num_active = sum(i < output_len)
-            output = output[:, :num_active]
-            hidden = hidden[:, :num_active]
-            memory = memory[:, :num_active]
+            num_running = sum(i < output_lens)
+            output = output[:, :num_running]
+            hidden = hidden[:, :num_running]
+            memory = memory[:, :num_running]
 
-            embedded = self.embedding(output.argmax(dim=2))
+            if annotations is None:
+                input_ = output.argmax(dim=2)  # self-learning
+            else:
+                input_ = annotations[i:i+1, :num_running]  # teaching
+
+            embedded = self.embedding(input_)
 
             query = torch.cat([embedded, hidden], dim=2)
             context, score = self.mha(query, memory, memory)
             output, hidden = self.gru(context, hidden)
             output = self.fc(output)
-            outputs[i:i + 1, :num_active, :] = output
-            hiddens[i:i + 1, :num_active, :] = hidden
-            scores[i:i + 1, :num_active, :] = score.mean(dim=2)
+            outputs[i:i + 1, :num_running, :] = output
+            hiddens[i:i + 1, :num_running, :] = hidden
+            scores[i:i + 1, :num_running, :] = score.mean(dim=2)
 
         return outputs, hiddens, scores
 
-    def decode(self, memory, max_output_len=50):
+    def decode(self, memory, max_output_len):
         """
         Args:
             memory, (memory_len, 1, input_dim)

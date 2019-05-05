@@ -53,19 +53,18 @@ class EncoderDecoder(nn.Module):
         y_len, idx = y_len.sort(dim=0, descending=True)
         x, y = x[:, idx], y[:, idx]
 
-        outputs, _, weights = self.decoder(x, y_len)
+        outputs, _, weights = self.decoder(x, y, y_len)
 
         outputs = pack_padded_sequence(outputs, y_len)[0]
         y = pack_padded_sequence(y, y_len)[0]
         loss = self.criterion(outputs, y)
-        logp = F.log_softmax(outputs, dim=-1)
 
         weights = self.sequence_to_feature_map(weights, bs, h, w)
 
         return {
-            'logp': logp,
-            'loss': loss,
+            'outputs': outputs,
             'weights': weights,
+            'loss': loss,
         }
 
     def decode(self, x, max_output_len=100):
@@ -73,15 +72,20 @@ class EncoderDecoder(nn.Module):
         bs, _, h, w = x.shape
 
         x = self.feature_map_to_sequence(x, bs, h, w)
+        outputs_list = []
+        weights_list = []
 
-        outputs, _, weights = self.decoder.decode(x, max_output_len)
-        logp = F.log_softmax(outputs, dim=-1)
+        for i in range(bs):
+            outputs, _, weights = self.decoder.decode(
+                x[:, i:i+1], max_output_len)
+            weights = self.sequence_to_feature_map(weights, 1, h, w)
 
-        weights = self.sequence_to_feature_map(weights, bs, h, w)
+            outputs_list.append(outputs)
+            weights_list.append(weights)
 
         return {
-            'logp': logp,
-            'weights': weights,
+            'outputs': outputs_list,
+            'weights': weights_list,
         }
 
 
@@ -92,4 +96,4 @@ class Seq2Seq(EncoderDecoder):
         # self.encoder = ResNetEncoder(opts.encoder)
         self.encoder = NLayerD(1, output_nc=opts.decoder.input_dim)
         self.decoder = MultiHeadAttnRNN(opts.decoder, len(vocab))
-        self.apply(weights_init('kaiming'))
+        self.apply(weights_init('gaussian'))
