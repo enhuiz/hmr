@@ -32,6 +32,8 @@ class Vocab():
         self.inv_words = {w: i for i, w in enumerate(self.words)}
 
     def word2index(self, w):
+        if w not in self.inv_words:
+            w = '<unk>'
         return self.inv_words[w]
 
     def index2word(self, i):
@@ -44,10 +46,12 @@ class Vocab():
 vocab = Vocab()
 
 
-def load_corpus(data_dir, typ):
+def create_samples(data_dir, typ, written=False):
     path = os.path.join(data_dir, 'annotations', '{}.csv'.format(typ))
     df = pd.read_csv(path)
-    df.columns = ['id', 'latex']
+    df.columns = ['id', 'annotation']
+
+    filenames = df['id'] + '.png'
 
     def printed_dir(x):
         return os.path.join(data_dir, 'features', 'printed', typ, x)
@@ -55,40 +59,37 @@ def load_corpus(data_dir, typ):
     def written_dir(x):
         return os.path.join(data_dir, 'features', 'written', typ, x)
 
-    filenames = df['id'] + '.png'
-    df['printed'] = filenames.apply(printed_dir)
-    df['written'] = filenames.apply(written_dir)
+    if written:
+        df['image'] = filenames.apply(written_dir)
+    else:
+        df['image'] = filenames.apply(printed_dir)
 
-    existence = df['printed'].apply(os.path.exists) \
-        & df['written'].apply(os.path.exists)
+    existence = df['image'].apply(os.path.exists)
+    df = df[existence]
 
-    df = df[existence == True]
+    df['annotation'] = df['annotation'].apply(lambda s: s.strip())
 
-    df['annotation'] = df['latex']
+    samples = df[['id', 'image', 'annotation']].to_dict('record')
 
-    return df
+    return samples
 
 
 class MathDataset(Dataset):
     def __init__(self, data_dir, typ, transform, written=False):
-        self.transform = transform
-
         vocab.load(data_dir)
-        corpus = load_corpus(data_dir, typ)
-
-        if written:
-            corpus['image'] = corpus['written']
-        else:
-            corpus['image'] = corpus['printed']
-
-        corpus = corpus[['id', 'image', 'annotation']]
-        self.samples = corpus.to_dict('record')
+        self.transform = transform
+        self.samples = create_samples(data_dir, typ, written)
 
     @staticmethod
     def load_pil(path):
-        with open(path, 'rb') as f:
-            img = Image.open(f)
-            return img.convert('L')
+        try:
+            with open(path, 'rb') as f:
+                img = Image.open(f)
+                return img.convert('L')
+        except Exception as e:
+            # some image in im2latex maybe broken, so create an empty image here
+            print(e)
+            return Image.new('L', (1, 1))
 
     def process_annotation(self, annotation):
         annotation = '<s> {} </s>'.format(annotation).split(' ')

@@ -21,7 +21,7 @@ def main():
         except pd.errors.EmptyDataError as e:
             continue
         for sentence in df[1].values:
-            tokens.update(sentence.split(' '))
+            tokens.update(sentence.strip().split(' '))
     tokens = sorted(tokens)
     with open(args.out_path, 'w') as f:
         f.write('\n'.join(tokens))

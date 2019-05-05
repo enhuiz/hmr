@@ -30,12 +30,12 @@ class EncoderDecoder(nn.Module):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss()
         self.pe = positional_encoding(
-            10000, opts.encoder.output_dim).to(opts.device)
+            10000, opts.encoder.output_dim)
 
     def feature_map_to_sequence(self, x, bs, h, w):
         x = x.reshape(len(x), -1, h * w)  # (bs, c, h, w) -> (bs, c, hw)
         x = x.transpose(1, 2)  # (bs, hw, c)
-        x = x + self.pe[:h * w]
+        x = x + self.pe[:h * w].to(x.device)
         x = x.transpose(0, 1)  # (hw, bs, c)
         return x
 
