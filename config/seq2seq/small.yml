@@ -1,5 +1,5 @@
 # meta
-name: Seq2Seq/crohme
+name: Seq2Seq/small
 model: Seq2Seq
 
 # data
@@ -8,11 +8,11 @@ base_size: [300, 300]
 
 # train
 device: cuda
-epochs: 5
-lr: 0.001
+epochs: 50
+lr: 0.0003
 beta1: 0.5
 beta2: 0.999
-batch_size: 32
+batch_size: 16
 mean: [0.5]
 continued: true
 
@@ -22,8 +22,8 @@ display_size: 6
 
 # model
 encoder:
-  output_dim: 512 # encoder output_dim should be the same as decoder input_dim
+  output_dim: 256 # encoder output_dim should be the same as decoder input_dim
 decoder:
   heads: 16
-  input_dim: 512
-  hidden_dim: 1024
+  input_dim: 256
+  hidden_dim: 512

@@ -64,7 +64,7 @@ def load_corpus(data_dir, typ):
 
     df = df[existence == True]
 
-    df['caption'] = df['latex']
+    df['annotation'] = df['latex']
 
     return df
 
@@ -81,7 +81,7 @@ class MathDataset(Dataset):
         else:
             corpus['image'] = corpus['printed']
 
-        corpus = corpus[['id', 'image', 'caption']]
+        corpus = corpus[['id', 'image', 'annotation']]
         self.samples = corpus.to_dict('record')
 
     @staticmethod
@@ -90,19 +90,19 @@ class MathDataset(Dataset):
             img = Image.open(f)
             return img.convert('L')
 
-    def process_caption(self, caption):
-        caption = '<s> {} </s>'.format(caption).split(' ')
-        caption = list(map(vocab.word2index, caption))
-        caption = torch.tensor(caption)
-        return caption
+    def process_annotation(self, annotation):
+        annotation = '<s> {} </s>'.format(annotation).split(' ')
+        annotation = list(map(vocab.word2index, annotation))
+        annotation = torch.tensor(annotation)
+        return annotation
 
     def __getitem__(self, idx):
         sample = dict(self.samples[idx])
         image = self.transform(self.load_pil(sample['image']))
-        caption = self.process_caption(sample['caption'])
+        annotation = self.process_annotation(sample['annotation'])
         sample['image'] = image
-        sample['caption'] = caption
-        sample['len'] = len(caption)
+        sample['annotation'] = annotation
+        sample['len'] = len(annotation)
         return sample
 
     def __len__(self):
@@ -111,14 +111,14 @@ class MathDataset(Dataset):
     @staticmethod
     def collate_fn(batch):
         image = [sample['image'] for sample in batch]
-        caption = [sample['caption'] for sample in batch]
+        annotation = [sample['annotation'] for sample in batch]
         len_ = [sample['len'] for sample in batch]
         id_ = [sample['id'] for sample in batch]
 
         ret = {}
         pad_ix = vocab.word2index('<pad>')
         ret['image'] = torch.stack(image)
-        ret['caption'] = pad_sequence(caption, False, pad_ix)
+        ret['annotation'] = pad_sequence(annotation, False, pad_ix)
         ret['len'] = torch.tensor(len_)
         ret['id'] = id_
 

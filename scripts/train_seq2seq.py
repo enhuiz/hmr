@@ -18,14 +18,13 @@ from tensorboardX import SummaryWriter
 from nltk.metrics import edit_distance
 from nltk.translate.bleu_score import sentence_bleu
 from torchvision import transforms
-
-torch.backends.cudnn.benchmark = True
+import matplotlib.pyplot as plt
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr import networks
 from hmr.data import vocab, MathDataset
-from utils import get_config, get_epoch_num, normalize
+from utils import get_config, get_epoch_num, normalize, add_mask
 
 
 def get_opts():
@@ -38,7 +37,7 @@ def get_opts():
 def visualize(model, sample, writer, iterations, opts):
     images = sample['image'][:1].to(opts.device)
     len_ = sample['len'][0]
-    captions = sample['caption'][:len_, :1].to(opts.device)
+    annotations = sample['annotation'][:len_, :1].to(opts.device)
 
     model.eval()
     with torch.no_grad():
@@ -49,25 +48,27 @@ def visualize(model, sample, writer, iterations, opts):
     predictions = torch.argmax(logp, dim=2)
 
     predictions = predictions.squeeze(1).tolist()
-    captions = captions.squeeze(1).tolist()
+    annotations = annotations.squeeze(1).tolist()
 
-    ref = list(map(vocab.index2word, captions))
+    ref = list(map(vocab.index2word, annotations))
     hyp = list(map(vocab.index2word, predictions))
-    bleu = sentence_bleu(ref, hyp)
+
     ed = edit_distance(ref, hyp)
 
-    print('BLEU: {}, ED: {}\nRef: {}\nHyp: {}'.format(
-        bleu, ed, ' '.join(ref), ' '.join(hyp)))
+    print('ED: {}, WER: {}\nRef: {}\nHyp: {}'.format(
+        ed, ed / len(ref), ' '.join(ref), ' '.join(hyp)))
 
     writer.add_text('sentence', ' '.join(ref) +
                     '\n' + ' '.join(hyp), iterations)
 
-    writer.add_image('image', normalize(images[0]), iterations)
+    image = normalize(images[0].cpu(), opts)
+    writer.add_image('image', image, iterations)
 
     weights = out['weights'][:, 0]
-    for t in range(len(weights)):
-        writer.add_image('weights-{}'.format(t),
-                         normalize(weights[t:t + 1]), iterations)
+    for t, weight in enumerate(weights):
+        weight = weight.unsqueeze(0).cpu()
+        masked = add_mask(image, weight)
+        writer.add_image('weights-{}'.format(t), masked, iterations)
 
 
 def adjust_lr(optimizer, interations, total_iterations, opts):
@@ -94,11 +95,11 @@ def train(model, optimizer, dl, opts):
         pbar = tqdm.tqdm(dl, total=len(dl))
         for step, sample in enumerate(pbar):
             images = sample['image'].to(opts.device)
-            captions = sample['caption'].to(opts.device)
+            annotations = sample['annotation'].to(opts.device)
             lens = sample['len'].to(opts.device)
 
             optimizer.zero_grad()
-            out = model(images, captions, lens)
+            out = model(images, annotations, lens)
             out['loss'].backward()
             optimizer.step()
 
@@ -153,7 +154,7 @@ def load_model(opts):
 def create_transform(opts):
     return transforms.Compose([
         transforms.Resize(opts.base_size),
-        transforms.ColorJitter(0.5, 0.5, 0.5),
+        transforms.ColorJitter(0.1, 0.1, 0.1),
         transforms.ToTensor(),
         transforms.Normalize([0.5], [1]),
     ])

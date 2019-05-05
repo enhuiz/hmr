@@ -100,7 +100,6 @@ class MultiHeadAttnRNN(nn.Module):
             context, score = self.mha(query, memory, memory)
             output, hidden = self.gru(context, hidden)
             output = self.fc(output)
-
             outputs[i:i + 1, :num_active, :] = output
             hiddens[i:i + 1, :num_active, :] = hidden
             scores[i:i + 1, :num_active, :] = score.mean(dim=2)

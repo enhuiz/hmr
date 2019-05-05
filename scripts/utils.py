@@ -7,6 +7,8 @@ from collections import namedtuple
 from torchvision.utils import make_grid
 import argparse
 
+import torch.nn.functional as F
+
 
 def adjust_lr(optimizer, interations, total_iterations, opts):
     lr = opts.lr * (1 - interations / total_iterations) ** 0.5
@@ -32,8 +34,8 @@ def flatten_dict(d):
     return ret
 
 
-def normalize(x):
-    return (x - x.min()) / (x.max() - x.min() + 1e-20)
+def normalize(x, opts):
+    return x + torch.tensor(opts.mean)
 
 
 def visualize(model, ws, ps, writer, iterations, opts):
@@ -44,7 +46,7 @@ def visualize(model, ws, ps, writer, iterations, opts):
     model.train()
 
     def select(x):
-        imgs = [normalize(x) for x in x]
+        imgs = [normalize(x, opts) for x in x]
         return make_grid(imgs, math.ceil(len(imgs)**0.5))
 
     for k, v in out.items():
@@ -62,3 +64,11 @@ def get_config(config):
     with open(config, 'r') as stream:
         d = yaml.load(stream, Loader=yaml.FullLoader)
     return make_namespace(d)
+
+
+def add_mask(image, weight):
+    mask = F.interpolate(weight.unsqueeze(0),
+                         image.shape[1:],
+                         mode='bilinear', align_corners=True).squeeze()
+    masked = image * (mask * 0.8 + 0.2)
+    return masked
