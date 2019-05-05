@@ -76,6 +76,8 @@ if [ -z $stage ] || [ $stage == 1 ]; then
             for file in $(find $srcdir/Task1_onlineRec/ -path "*/$task/*.inkml"); do
                 annotate_helper $file $dst
             done
+            
+            python3 scripts/data/tokenize_latex.py $dst $dst
         fi
     }
 
@@ -83,16 +85,6 @@ if [ -z $stage ] || [ $stage == 1 ]; then
     annotate Train $dst/annotations/train.csv
     annotate valid $dst/annotations/dev.csv
     annotate Test $dst/annotations/test.csv
-fi
-
-if [ -z $stage ] || [ $stage == 2 ]; then
-    echo "Tokenizing & Creating Vocab ..."
-
-    python3 scripts/data/tokenize_latex.py $dst/annotations/{train,tok_train}.csv
-    python3 scripts/data/tokenize_latex.py $dst/annotations/{dev,tok_dev}.csv
-    python3 scripts/data/tokenize_latex.py $dst/annotations/{test,tok_test}.csv
-
-    python3 scripts/data/build_vocab.py $dst/annotations/{tok_train.csv,vocab.csv}
 fi
 
 if [ -z $stage ] || [ $stage == 3 ]; then

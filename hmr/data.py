@@ -45,7 +45,7 @@ vocab = Vocab()
 
 
 def load_corpus(data_dir, typ):
-    path = os.path.join(data_dir, 'annotations', 'tok_{}.csv'.format(typ))
+    path = os.path.join(data_dir, 'annotations', '{}.csv'.format(typ))
     df = pd.read_csv(path)
     df.columns = ['id', 'latex']
 
