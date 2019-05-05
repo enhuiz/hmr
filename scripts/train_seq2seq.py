@@ -44,8 +44,8 @@ def visualize(model, sample, writer, iterations, opts):
         out = model.decode(images)
     model.train()
 
-    logp = out['logp']
-    predictions = torch.argmax(logp, dim=2)
+    outputs = out['outputs']
+    predictions = torch.argmax(outputs, dim=2)
 
     predictions = predictions.squeeze(1).tolist()
     annotations = annotations.squeeze(1).tolist()
