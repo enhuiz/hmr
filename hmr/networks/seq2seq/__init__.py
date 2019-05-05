@@ -6,6 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 import torch.nn.functional as F
 
 from hmr.data import vocab
+from hmr.networks.utils import weights_init
 from .encoder import NLayerD, ResNetEncoder
 from .decoder import MultiHeadAttnRNN
 
@@ -90,3 +91,4 @@ class Seq2Seq(EncoderDecoder):
         # NLayerD(1, output_nc=opts.decoder.input_dim)
         self.encoder = ResNetEncoder(opts.encoder)
         self.decoder = MultiHeadAttnRNN(opts.decoder, len(vocab))
+        self.apply(weights_init('kaiming'))

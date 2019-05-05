@@ -85,6 +85,8 @@ if [ -z $stage ] || [ $stage == 1 ]; then
     annotate Train $dst/annotations/train.csv
     annotate valid $dst/annotations/dev.csv
     annotate Test $dst/annotations/test.csv
+
+    python3 scripts/data/build_vocab.py $dst/annotations/{train,vocab}.csv
 fi
 
 if [ -z $stage ] || [ $stage == 2 ]; then
