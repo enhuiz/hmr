@@ -1,6 +1,6 @@
 # meta
-name: Seq2Seq/medium
-model: Seq2Seq
+name: seq2seq/crohme
+model: seq2seq
 
 # data
 data_dir: "data/crohme"
@@ -22,8 +22,8 @@ display_size: 6
 
 # model
 encoder:
-  output_dim: 512 # encoder output_dim should be the same as decoder input_dim
+  output_dim: 256 # encoder output_dim should be the same as decoder input_dim
 decoder:
-  heads: 16
-  input_dim: 512
-  hidden_dim: 1024
+  heads: 4
+  input_dim: 256
+  hidden_dim: 512

@@ -89,6 +89,7 @@ class Seq2Seq(EncoderDecoder):
     def __init__(self, opts):
         super().__init__(opts)
         # NLayerD(1, output_nc=opts.decoder.input_dim)
-        self.encoder = ResNetEncoder(opts.encoder)
+        # self.encoder = ResNetEncoder(opts.encoder)
+        self.encoder = NLayerD(1, output_nc=opts.decoder.input_dim)
         self.decoder = MultiHeadAttnRNN(opts.decoder, len(vocab))
         self.apply(weights_init('kaiming'))

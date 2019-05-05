@@ -15,7 +15,8 @@ class Identity(nn.Module):
 
 class ResNetEncoder(resnet.ResNet):
     def __init__(self, opts):
-        super().__init__(resnet.BasicBlock, [2, 2, 2, 2])
+        super().__init__(resnet.BasicBlock, [2, 2, 2, 2],
+                         replace_stride_with_dilation=[True, True, True])
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7,
                                stride=2, padding=3,
                                bias=False)
