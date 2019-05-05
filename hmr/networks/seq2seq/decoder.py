@@ -1,7 +1,8 @@
+import random
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from hmr.data import vocab
 
 
@@ -66,7 +67,7 @@ class MultiHeadAttnRNN(nn.Module):
             l = l[::-1]
         assert all(l[i] <= l[i + 1] for i in range(len(l) - 1))
 
-    def forward(self, memory, annotations=None, output_lens=None, max_output_len=100):
+    def forward(self, memory, annotations=None, output_lens=None, max_output_len=100, teaching_prob=0.5):
         """
          Args:
              memory: encoder_outputs, (memory_len, bs, input_dim), sorted by output_lens
@@ -94,17 +95,17 @@ class MultiHeadAttnRNN(nn.Module):
             hidden = hidden[:, :num_running]
             memory = memory[:, :num_running]
 
-            if annotations is None:
+            if annotations is None or random.random() > teaching_prob or i < 1:
                 input_ = output.argmax(dim=2)  # self-learning
             else:
-                input_ = annotations[i:i+1, :num_running]  # teaching
+                input_ = annotations[i-1:i, :num_running]  # teaching
 
             embedded = self.embedding(input_)
-
             query = torch.cat([embedded, hidden], dim=2)
             context, score = self.mha(query, memory, memory)
             output, hidden = self.gru(context, hidden)
             output = self.fc(output)
+
             outputs[i:i + 1, :num_running, :] = output
             hiddens[i:i + 1, :num_running, :] = hidden
             scores[i:i + 1, :num_running, :] = score.mean(dim=2)
