@@ -87,7 +87,7 @@ if [ -z $stage ] || [ $stage == 1 ]; then
     annotate Test $dst/annotations/test.csv
 fi
 
-if [ -z $stage ] || [ $stage == 3 ]; then
+if [ -z $stage ] || [ $stage == 2 ]; then
     echo "Rendering stroke (written) ..."
     cd $srcdir/Task2_offlineRec/
     ./ImgGenerator
@@ -101,7 +101,7 @@ if [ -z $stage ] || [ $stage == 3 ]; then
     find $srcdir/Task2_offlineRec/ -path "*/test/*.png" -exec cp {} $wdir/test/ \;
 fi
 
-if [ -z $stage ] || [ $stage == 4 ]; then
+if [ -z $stage ] || [ $stage == 3 ]; then
     echo "Rendering latex (printed) ..."
 
     pdir=$dst/features/printed
