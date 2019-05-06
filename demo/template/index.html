@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Cycle Latex Recognizer</title>
+</head>
+
+<body onload="init()">
+    <canvas id="canvas" width="300" height="300" style="position:absolute;top:10%;left:10%;border:2px solid;"></canvas>
+
+    <div id='fake' style="position:absolute;top:10%;left:52%;border:2px solid;">
+
+    </div>
+
+    <div id='weights' style="position:absolute;top:60%;left:10%;border:2px solid;">
+
+    </div>
+
+    <div style="position:absolute;top:50%;left:25%;">
+        <input type="button" value="submit" id="btn" size="30" onclick="submit()" style="display: inline-block;">
+        <input type="button" value="clear" id="clr" size="23" onclick="erase()" style="display: inline-block;">
+    </div>
+
+    <script type="text/javascript">
+        var canvas, ctx, flag = false,
+            prevX = 0,
+            currX = 0,
+            prevY = 0,
+            currY = 0,
+            dot_flag = false;
+
+        var x = "black",
+            y = 2;
+
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext("2d");
+            w = canvas.width;
+            h = canvas.height;
+
+            // background
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            canvas.addEventListener("mousemove", function (e) {
+                findxy('move', e)
+            }, false);
+            canvas.addEventListener("mousedown", function (e) {
+                findxy('down', e)
+            }, false);
+            canvas.addEventListener("mouseup", function (e) {
+                findxy('up', e)
+            }, false);
+            canvas.addEventListener("mouseout", function (e) {
+                findxy('out', e)
+            }, false);
+        }
+
+        function draw() {
+            ctx.beginPath();
+            ctx.moveTo(prevX, prevY);
+            ctx.lineTo(currX, currY);
+            ctx.strokeStyle = x;
+            ctx.lineWidth = y;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        function erase() {
+            // background
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function findxy(res, e) {
+            if (res == 'down') {
+                prevX = currX;
+                prevY = currY;
+                currX = e.clientX - canvas.offsetLeft;
+                currY = e.clientY - canvas.offsetTop;
+
+                flag = true;
+                dot_flag = true;
+                if (dot_flag) {
+                    ctx.beginPath();
+                    ctx.fillStyle = x;
+                    ctx.fillRect(currX, currY, 2, 2);
+                    ctx.closePath();
+                    dot_flag = false;
+                }
+            }
+            if (res == 'up' || res == "out") {
+                flag = false;
+            }
+            if (res == 'move') {
+                if (flag) {
+                    prevX = currX;
+                    prevY = currY;
+                    currX = e.clientX - canvas.offsetLeft;
+                    currY = e.clientY - canvas.offsetTop;
+                    draw();
+                }
+            }
+        }
+
+        function cleanDiv(id) {
+            div = document.getElementById(id);
+            div.innerHTML = '';
+        }
+
+        function createFigure(image, caption) {
+            fig = document.createElement('figure');
+            content = document.createElement('figcaption');
+            content.innerText = caption;
+            fig.appendChild(image);
+            fig.appendChild(content);
+            fig.style.display = "inline-block";
+            return fig;
+        }
+
+        function appendImage(id, data, caption, width = 300, height = 300) {
+            image = new Image()
+            image.src = data
+            image.width = width
+            image.height = height
+
+            div = document.getElementById(id);
+            div.appendChild(createFigure(image, caption));
+        }
+
+        function setImageToFrame(image, name, caption) {
+            document.getElementById(name).style.border = "2px solid";
+            document.getElementById(name).src = image
+        }
+
+        function submit() {
+            var self = this;
+            var imageData = canvas.toDataURL();
+            var request = new XMLHttpRequest();
+            var url = '/upload';
+            request.responseType = 'json';
+            request.open('POST', url, true);
+            request.setRequestHeader('Content-Type', 'application/json');
+            request.onreadystatechange = function () {
+                if (request.readyState == 4 && request.status == 200) {
+                    cleanDiv('fake');
+                    cleanDiv('weights');
+                    appendImage("fake", request.response.fake, "Fake printed image.");
+                    for (var i = 0; i < request.response.weights.length; ++i) {
+                        appendImage("weights", request.response.weights[i], request.response.hyp[i], 100, 100);
+                    }
+                }
+            }
+            request.send(imageData);
+        }
+    </script>
+
+</body>
+
+</html>
