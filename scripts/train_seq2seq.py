@@ -58,7 +58,7 @@ def visualize(model, sample, writer, iterations, opts):
     print(calculate_scores([ref], [hyp]))
     print(content)
 
-    image = normalize(images[0].cpu(), opts)
+    image = normalize(images[0], opts).cpu()
     writer.add_image('image', image, iterations)
 
     weights = out['weights'][0][:, 0]
@@ -142,9 +142,8 @@ def create_transform(opts):
 
 
 def load_dataloader(opts):
-    ds = MathDataset(opts.data_dir, 'train',
-                     create_transform(opts),
-                     written=False)
+    ds = MathDataset(opts.data_dir, 'printed', 'train',
+                     create_transform(opts))
 
     dl = DataLoader(ds, batch_size=opts.batch_size,
                     shuffle=True, collate_fn=MathDataset.collate_fn)

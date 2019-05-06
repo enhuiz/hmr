@@ -113,22 +113,18 @@ def create_transform(opts):
     return transforms.Compose([
         transforms.Resize(opts.base_size),
         transforms.RandomCrop((opts.crop_size)),
-        transforms.ColorJitter(0.5, 0.5, 0.5),
+        # transforms.ColorJitter(0.5, 0.5, 0.5),
         transforms.ToTensor(),
         transforms.Normalize([0.5], [1]),
     ])
 
 
 def load_dataloaders(opts):
-    wds = MathDataset(opts.data_dir, 'train',
-                      create_transform(opts),
-                      written=True)
+    wds = MathDataset(opts.data_dir, 'written', 'train',
+                      create_transform(opts, written=True))
 
-    pds = MathDataset(opts.data_dir, 'train',
-                      create_transform(opts),
-                      written=False)
-
-    assert len(pds) == len(wds)
+    pds = MathDataset(opts.data_dir, 'printed', 'train',
+                      create_transform(opts, written=False))
 
     wdl = DataLoader(wds,
                      batch_size=opts.batch_size,

@@ -1,12 +1,12 @@
 #!/bin/bash
 
-out_dir=$1
+model=$1
 
-for typ in dev train; do
-    python3 -u scripts/forward_cycle_gan.py \
+for typ in dev; do
+    python3 -u scripts/forward_gan.py \
         --data-dir data/crohme \
-        --model ckpt/ResNetCycleGAN/crohme/25.pth \
+        --model $model \
         --type $typ \
-        --out-dir $out_dir/$typ \
-        --device cpu
+        --out-dir data/crohme/features/fake/$typ \
+        --device cuda
 done

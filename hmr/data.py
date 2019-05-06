@@ -55,39 +55,26 @@ class Vocab():
 vocab = Vocab()
 
 
-def create_samples(data_dir, typ, written=False):
+def create_samples(data_dir, style, typ):
     path = os.path.join(data_dir, 'annotations', '{}.csv'.format(typ))
     df = pd.read_csv(path)
     df.columns = ['id', 'annotation']
 
-    filenames = df['id'] + '.png'
-
-    def printed_dir(x):
-        return os.path.join(data_dir, 'features', 'printed', typ, x)
-
-    def written_dir(x):
-        return os.path.join(data_dir, 'features', 'written', typ, x)
-
-    if written:
-        df['image'] = filenames.apply(written_dir)
-    else:
-        df['image'] = filenames.apply(printed_dir)
-
+    image_path = os.path.join(data_dir, 'features', style, typ, '{}.png')
+    df['image'] = df['id'].apply(image_path.format)
     existence = df['image'].apply(os.path.exists)
     df = df[existence]
-
-    df['annotation'] = df['annotation'].apply(lambda s: s.strip())
-
+    df['annotation'] = df['annotation'].apply(lambda s: str(s).strip())
     samples = df[['id', 'image', 'annotation']].to_dict('record')
 
     return samples
 
 
 class MathDataset(Dataset):
-    def __init__(self, data_dir, typ, transform, written=False):
+    def __init__(self, data_dir, style, typ, transform):
         vocab.load(data_dir)
         self.transform = transform
-        self.samples = create_samples(data_dir, typ, written)
+        self.samples = create_samples(data_dir, style, typ)
 
     @staticmethod
     def load_pil(path):

@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import tqdm
 from torchvision.utils import make_grid
 from tensorboardX import SummaryWriter
-from pandas.io.json import json_normalize
+from torchvision import transforms
 from PIL import Image
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -87,9 +87,8 @@ def main():
     model = load_model(opts)
     model = model.to(opts.device)
 
-    ds = MathDataset(opts.data_dir, opts.type,
-                     create_transform(opts),
-                     written=True)
+    ds = MathDataset(opts.data_dir, 'written', opts.type,
+                     create_transform(opts))
 
     dl = DataLoader(ds,
                     batch_size=opts.batch_size,

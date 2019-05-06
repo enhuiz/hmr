@@ -82,10 +82,9 @@ def create_transform(opts):
     ])
 
 
-def load_dataloader(opts):
-    ds = MathDataset(opts.data_dir, 'dev',
-                     create_transform(opts),
-                     written=False)
+def load_dataloader(opts, style):
+    ds = MathDataset(opts.data_dir, style, 'dev',
+                     create_transform(opts))
 
     dl = DataLoader(ds, batch_size=opts.batch_size,
                     shuffle=True, collate_fn=MathDataset.collate_fn)
@@ -101,8 +100,6 @@ def main():
     opts = get_opts()
     print(opts)
 
-    dl = load_dataloader(opts)
-
     ckpts = glob.glob(os.path.join('ckpt', opts.name, '*.pth'))
     ckpt = sorted(ckpts, key=extract_epoch_num)[-1]
     model = torch.load(ckpt, map_location='cpu')
@@ -110,7 +107,12 @@ def main():
 
     print('{} loaded.'.format(ckpt))
 
-    evaluate(model, dl, opts)
+    name = opts.name
+    for style in ['printed', 'written', 'fake']:
+        print('Evaluating {} ...'.format(style))
+        dl = load_dataloader(opts, style)
+        opts.name = '{}/{}'.format(name,  style)
+        evaluate(model, dl, opts)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ def flatten_dict(d):
 
 
 def normalize(x, opts):
-    return x + torch.tensor(opts.mean)
+    return x + torch.tensor(opts.mean).to(x.device)
 
 
 def visualize(model, ws, ps, writer, iterations, opts):
