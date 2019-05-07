@@ -15,6 +15,10 @@
 
     </div>
 
+    <div id='formula' style="position:absolute;top:50%;left:10%;border:2px solid;">
+
+    </div>
+
     <div id='weights' style="position:absolute;top:60%;left:10%;border:2px solid;">
 
     </div>
@@ -131,6 +135,11 @@
             div.appendChild(createFigure(image, caption));
         }
 
+        function appendText(id, text) {
+            div = document.getElementById(id);
+            div.innerText += text;
+        }
+
         function setImageToFrame(image, name, caption) {
             document.getElementById(name).style.border = "2px solid";
             document.getElementById(name).src = image
@@ -148,16 +157,23 @@
                 if (request.readyState == 4 && request.status == 200) {
                     cleanDiv('fake');
                     cleanDiv('weights');
+                    cleanDiv('formula');
                     appendImage("fake", request.response.fake, "Fake printed image.");
                     for (var i = 0; i < request.response.weights.length; ++i) {
-                        appendImage("weights", request.response.weights[i], request.response.hyp[i], 100, 100);
+                        appendImage("weights", request.response.weights[i],
+                            request.response.hyp[i], 100, 100);
                     }
+                    appendText('formula', '$ ');
+                    for (var i = 1; i <
+                        request.response.hyp.length - 1; ++i) {
+                        appendText('formula', request.response.hyp[i] + ' ');
+                    }
+                    appendText('formula', ' $');
                 }
             }
             request.send(imageData);
         }
     </script>
-
 </body>
 
 </html>
