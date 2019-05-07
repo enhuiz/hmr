@@ -48,6 +48,9 @@ def train(model, g_optimizer, d_optimizer, wdl, pdl, opts):
     for epoch in range(opts.epoch0, opts.epochs):
         pbar = tqdm.tqdm(zip(wdl, pdl), total=len(wdl))
         for step, (ws, ps) in enumerate(pbar):
+            d_lr = adjust_lr(d_optimizer, iterations, total_iterations, opts)
+            g_lr = adjust_lr(g_optimizer, iterations, total_iterations, opts)
+
             real_X = ws['image'].to(opts.device)
             real_Y = ps['image'].to(opts.device)
 
@@ -65,9 +68,6 @@ def train(model, g_optimizer, d_optimizer, wdl, pdl, opts):
             g_optimizer.step()
 
             iterations += 1
-
-            d_lr = adjust_lr(d_optimizer, iterations, total_iterations, opts)
-            g_lr = adjust_lr(g_optimizer, iterations, total_iterations, opts)
 
             description = []
             for k, v in flatten_dict(out).items():
@@ -110,10 +110,11 @@ def load_model(opts):
 
 
 def create_transform(opts):
+    def identity(x): return x
+
     return transforms.Compose([
         transforms.Resize(opts.base_size),
-        transforms.RandomCrop((opts.crop_size)),
-        # transforms.ColorJitter(0.5, 0.5, 0.5),
+        identity if opts.paired else transforms.RandomCrop(opts.crop_size),
         transforms.ToTensor(),
         transforms.Normalize([0.5], [1]),
     ])
@@ -121,19 +122,19 @@ def create_transform(opts):
 
 def load_dataloaders(opts):
     wds = MathDataset(opts.data_dir, 'written', 'train',
-                      create_transform(opts, written=True))
+                      create_transform(opts))
 
     pds = MathDataset(opts.data_dir, 'printed', 'train',
-                      create_transform(opts, written=False))
+                      create_transform(opts))
 
     wdl = DataLoader(wds,
                      batch_size=opts.batch_size,
-                     shuffle=True,
+                     shuffle=not opts.paired,
                      collate_fn=MathDataset.collate_fn)
 
     pdl = DataLoader(pds,
                      batch_size=opts.batch_size,
-                     shuffle=False,
+                     shuffle=not opts.paired,
                      collate_fn=MathDataset.collate_fn)
 
     return wdl, pdl

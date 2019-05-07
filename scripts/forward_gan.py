@@ -48,20 +48,31 @@ def flatten_dict(d):
     return ret
 
 
-def train(model, dl, opts):
-    model = model.train()
+def forward_once(sample, model, dir_, opts):
+    id_ = sample['id']
+    real = sample['image'].to(opts.device)
+    fake = model(real).detach().cpu().numpy()
+    for id_, img in zip(sample['id'], fake):
+        path = os.path.join(dir_, '{}.png'.format(id_))
+        img = (img + opts.mean).squeeze() * 255
+        img = Image.fromarray(img)
+        img = img.convert('L')
+        img.save(path)
 
-    pbar = tqdm.tqdm(dl, total=len(dl))
-    for step, sample in enumerate(pbar):
-        id_ = sample['id']
-        real_X = sample['image'].to(opts.device)
-        fake_Y = model.G_XtoY(real_X).detach().cpu().numpy()
-        for id_, img in zip(sample['id'], fake_Y):
-            path = os.path.join(opts.out_dir, '{}.png'.format(id_))
-            img = (img + opts.mean).squeeze() * 255
-            img = Image.fromarray(img)
-            img = img.convert('L')
-            img.save(path)
+
+def forward(model, wdl, pdl, opts):
+    model = model.eval()
+    pbar = tqdm.tqdm(zip(wdl, pdl), total=len(wdl))
+
+    fpdir = os.path.join(opts.out_dir, 'fake_printed', opts.type)
+    fwdir = os.path.join(opts.out_dir, 'fake_written', opts.type)
+    os.makedirs(fpdir, exist_ok=True)
+    os.makedirs(fwdir, exist_ok=True)
+
+    for ws, ps in pbar:
+        with torch.no_grad():
+            forward_once(ws, model.G_XtoY, fpdir, opts)
+            # forward_once(ps, model.G_YtoX, fwdir, opts)
 
 
 def load_model(opts):
@@ -73,7 +84,6 @@ def load_model(opts):
 def create_transform(opts):
     return transforms.Compose([
         transforms.Resize(opts.base_size),
-        transforms.ColorJitter(0.5, 0.5, 0.5),
         transforms.ToTensor(),
         transforms.Normalize([0.5], [1]),
     ])
@@ -81,21 +91,28 @@ def create_transform(opts):
 
 def main():
     opts = get_opts()
-    os.makedirs(opts.out_dir, exist_ok=True)
     print(opts)
 
     model = load_model(opts)
     model = model.to(opts.device)
 
-    ds = MathDataset(opts.data_dir, 'written', opts.type,
-                     create_transform(opts))
+    wds = MathDataset(opts.data_dir, 'written', opts.type,
+                      create_transform(opts))
 
-    dl = DataLoader(ds,
-                    batch_size=opts.batch_size,
-                    collate_fn=MathDataset.collate_fn,
-                    shuffle=False)
+    wdl = DataLoader(wds,
+                     batch_size=opts.batch_size,
+                     collate_fn=MathDataset.collate_fn,
+                     shuffle=False)
 
-    train(model, dl, opts)
+    pds = MathDataset(opts.data_dir, 'printed', opts.type,
+                      create_transform(opts))
+
+    pdl = DataLoader(pds,
+                     batch_size=opts.batch_size,
+                     collate_fn=MathDataset.collate_fn,
+                     shuffle=False)
+
+    forward(model, wdl, pdl, opts)
 
 
 if __name__ == "__main__":

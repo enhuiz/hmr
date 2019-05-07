@@ -5,7 +5,7 @@ from PIL import Image
 from flask import Flask, request, render_template, jsonify
 import torch
 
-from utils import base64_to_image, image_to_base64, Demonstrator
+from utils import Demonstrator
 
 
 file_dir = os.path.dirname(os.path.abspath(__file__))

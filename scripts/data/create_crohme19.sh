@@ -76,7 +76,7 @@ if [ -z $stage ] || [ $stage == 1 ]; then
             for file in $(find $srcdir/Task1_onlineRec/ -path "*/$task/*.inkml"); do
                 annotate_helper $file $dst
             done
-            
+
             python3 scripts/data/tokenize_latex.py $dst $dst
         fi
     }
@@ -112,6 +112,14 @@ if [ -z $stage ] || [ $stage == 3 ]; then
     node scripts/data/latex2png.js $dst/annotations/train.csv $pdir/train
     node scripts/data/latex2png.js $dst/annotations/dev.csv $pdir/dev
     node scripts/data/latex2png.js $dst/annotations/test.csv $pdir/test
+fi
+
+if [ -z $stage ] || [ $stage == 4 ]; then
+    echo "Removing failures ..."
+
+    python3 scripts/data/remove_failures.py $dst/annotations/train.csv
+    python3 scripts/data/remove_failures.py $dst/annotations/dev.csv
+    python3 scripts/data/remove_failures.py $dst/annotations/test.csv
 fi
 
 echo "done."

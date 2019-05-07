@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr import networks
 from hmr.data import vocab, MathDataset
-from utils import get_config, calculate_scores
+from utils import get_config, calculate_scores, denormalize
 
 
 def get_opts():
@@ -108,7 +108,7 @@ def main():
     print('{} loaded.'.format(ckpt))
 
     name = opts.name
-    for style in ['printed', 'written', 'fake']:
+    for style in ['printed', 'written', 'fake_printed', 'fake_written']:
         print('Evaluating {} ...'.format(style))
         dl = load_dataloader(opts, style)
         opts.name = '{}/{}'.format(name,  style)

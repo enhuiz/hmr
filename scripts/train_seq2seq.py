@@ -24,7 +24,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr import networks
 from hmr.data import vocab, MathDataset
-from utils import get_config, get_epoch_num, normalize, add_mask, calculate_scores, adjust_lr
+from utils import get_config, get_epoch_num, denormalize, add_mask, calculate_scores, adjust_lr
 
 
 def get_opts():
@@ -58,7 +58,7 @@ def visualize(model, sample, writer, iterations, opts):
     print(calculate_scores([ref], [hyp]))
     print(content)
 
-    image = normalize(images[0], opts).cpu()
+    image = denormalize(images[0], opts).cpu()
     writer.add_image('image', image, iterations)
 
     weights = out['weights'][0][:, 0]

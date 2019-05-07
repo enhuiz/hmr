@@ -57,14 +57,14 @@ vocab = Vocab()
 
 def create_samples(data_dir, style, typ):
     path = os.path.join(data_dir, 'annotations', '{}.csv'.format(typ))
-    df = pd.read_csv(path)
-    df.columns = ['id', 'annotation']
+    df = pd.read_csv(path, names=['id', 'annotation'])
 
     image_path = os.path.join(data_dir, 'features', style, typ, '{}.png')
     df['image'] = df['id'].apply(image_path.format)
-    existence = df['image'].apply(os.path.exists)
-    df = df[existence]
-    df['annotation'] = df['annotation'].apply(lambda s: str(s).strip())
+
+    assert all(df['image'].apply(os.path.exists))  # assert existence
+
+    df['annotation'] = df['annotation'].str.strip()
     samples = df[['id', 'image', 'annotation']].to_dict('record')
 
     return samples

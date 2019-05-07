@@ -7,6 +7,6 @@ for typ in dev; do
         --data-dir data/crohme \
         --model $model \
         --type $typ \
-        --out-dir data/crohme/features/fake/$typ \
+        --out-dir data/crohme/features/ \
         --device cuda
 done

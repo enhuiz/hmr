@@ -37,19 +37,20 @@ def flatten_dict(d):
     return ret
 
 
-def normalize(x, opts):
+def denormalize(x, opts):
     return x + torch.tensor(opts.mean).to(x.device)
 
 
 def visualize(model, ws, ps, writer, iterations, opts):
     real_X = ws['image'][:opts.display_size].to(opts.device)
     real_Y = ps['image'][:opts.display_size].to(opts.device)
+
     model.eval()
     out = model(real_X, real_Y)
     model.train()
 
     def select(x):
-        imgs = [normalize(x, opts) for x in x]
+        imgs = [denormalize(x, opts) for x in x]
         return make_grid(imgs, math.ceil(len(imgs)**0.5))
 
     for k, v in out.items():
