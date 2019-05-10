@@ -1,0 +1,30 @@
+# This failed
+
+# meta
+name: pix2pix/crohme
+model: pix2pix
+base_size: [224, 224]
+crop_size: [224, 224]
+
+# data
+data_dir: data/crohme
+paired: true
+
+# train
+device: cuda
+batch_size: 16
+epochs: 50
+lr: 0.0001
+beta1: 0.5
+beta2: 0.999
+mean: [0.5]
+lambd: 3
+continued: true
+
+# log
+sample_every: 20
+display_size: 6
+
+# model
+g_conv_dim: 32
+d_conv_dim: 32

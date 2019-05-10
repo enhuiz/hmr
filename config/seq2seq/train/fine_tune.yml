@@ -1,0 +1,23 @@
+# meta
+name: seq2seq/fine_tune
+model: ckpt/seq2seq/im2latex/50.pth
+
+# data
+data_dir: "data/crohme"
+base_size: [300, 300]
+
+# train
+fine_tune: true
+device: cuda
+epochs: 11
+lr: 0.0001 # 1: 0.01, 2~5: 1e-4
+beta1: 0.5
+beta2: 0.999
+batch_size: 20
+mean: [0.5]
+continued: true
+
+# log
+sample_every: 20
+display_size: 6
+max_output_len: 100

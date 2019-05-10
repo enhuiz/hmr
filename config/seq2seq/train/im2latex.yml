@@ -1,29 +1,30 @@
 # meta
-name: seq2seq/crohme
+name: seq2seq/im2latex
 model: seq2seq
 
 # data
-data_dir: "data/crohme"
+data_dir: "data/im2latex"
 base_size: [300, 300]
 
 # train
 device: cuda
 epochs: 50
-lr: 0.0003
+lr: 0.0001
 beta1: 0.5
 beta2: 0.999
-batch_size: 16
+batch_size: 20
 mean: [0.5]
 continued: true
 
 # log
 sample_every: 20
 display_size: 6
+max_output_len: 100
 
 # model
 encoder:
-  output_dim: 256 # encoder output_dim should be the same as decoder input_dim
+  output_dim: 128 # encoder output_dim should be the same as decoder input_dim
 decoder:
   heads: 4
-  input_dim: 256
-  hidden_dim: 512
+  input_dim: 128
+  hidden_dim: 256

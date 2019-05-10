@@ -1,0 +1,18 @@
+# meta
+name: seq2seq/im2latex
+
+# model
+ckpt: ckpt/seq2seq/im2latex/50.pth
+
+# data
+data_dir: data/im2latex
+vocab: data/im2latex/annotations/vocab.csv
+base_size: [300, 300]
+mean: [0.5]
+
+# eval
+device: cuda
+styles: ["printed"]
+parts: ["dev", "test"]
+batch_size: 20
+max_output_len: 100

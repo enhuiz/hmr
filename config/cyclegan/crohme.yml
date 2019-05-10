@@ -1,15 +1,16 @@
 # meta
-name: CycleGAN/crohme
-model: ckpt/CycleGAN/mnist/5.pth
+name: cyclegan/crohme
+model: ckpt/cyclegan/mnist/5.pth
 base_size: [300, 300]
 crop_size: [224, 224]
 
 # data
 data_dir: data/crohme
+paired: false
 
 # train
 device: cuda
-epochs: 10
+epochs: 80
 lr: 0.001
 beta1: 0.5
 beta2: 0.999
@@ -23,6 +24,6 @@ continued: true
 sample_every: 20
 display_size: 6
 
-# model
-g_conv_dim: 32
-d_conv_dim: 32
+# model (determined by mnist.yml, should be the same with it)
+# g_conv_dim: 32
+# d_conv_dim: 32

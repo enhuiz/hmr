@@ -1,6 +1,6 @@
 # meta
-name: CycleGAN/mnist
-model: CycleGAN
+name: cyclegan/mnist
+model: cyclegan
 base_size: [80, 80]
 crop_size: [60, 60]
 
@@ -9,7 +9,7 @@ data_dir: data/mnist
 
 # train
 device: cuda
-epochs: 10
+epochs: 5
 lr: 0.001
 beta1: 0.5
 beta2: 0.999
