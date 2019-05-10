@@ -4,8 +4,8 @@ import torch.nn as nn
 
 from torch.nn.utils.rnn import pack_padded_sequence
 import torch.nn.functional as F
+import torchsummary
 
-from hmr.data import vocab
 from hmr.networks.utils import weights_init
 from .encoder import NLayerD, ResNetEncoder
 from .decoder import MultiHeadAttnRNN
@@ -26,7 +26,7 @@ def positional_encoding(n_position, emb_dim):
     return torch.from_numpy(position_enc).type(torch.FloatTensor)
 
 
-class EncoderDecoder(nn.Module):
+class EncoderDecoderBase(nn.Module):
     def __init__(self, opts):
         super().__init__()
         self.criterion = nn.CrossEntropyLoss()
@@ -67,7 +67,7 @@ class EncoderDecoder(nn.Module):
             'loss': loss,
         }
 
-    def decode(self, x, max_output_len=100):
+    def decode(self, x, eos, max_output_len):
         x = self.encoder(x)
         bs, _, h, w = x.shape
 
@@ -77,7 +77,7 @@ class EncoderDecoder(nn.Module):
 
         for i in range(bs):
             outputs, _, weights = self.decoder.decode(
-                x[:, i:i+1], max_output_len)
+                x[:, i:i+1], eos, max_output_len)
             weights = self.sequence_to_feature_map(weights, 1, h, w)
 
             outputs_list.append(outputs)
@@ -89,11 +89,11 @@ class EncoderDecoder(nn.Module):
         }
 
 
-class Seq2Seq(EncoderDecoder):
+class Seq2Seq(EncoderDecoderBase):
     def __init__(self, opts):
         super().__init__(opts)
         # NLayerD(1, output_nc=opts.decoder.input_dim)
         # self.encoder = ResNetEncoder(opts.encoder)
         self.encoder = NLayerD(1, output_nc=opts.decoder.input_dim)
-        self.decoder = MultiHeadAttnRNN(opts.decoder, len(vocab))
+        self.decoder = MultiHeadAttnRNN(opts.decoder, len(opts.vocab))
         self.apply(weights_init('gaussian'))

@@ -11,13 +11,10 @@ from torch.nn.utils.rnn import pad_sequence
 
 
 class Vocab():
-    def __init__(self, data_dir=None):
-        if data_dir is not None:
-            self.load(data_dir)
+    def __init__(self, path):
+        self.load(path)
 
-    def load(self, data_dir):
-        path = os.path.join(data_dir, 'annotations', 'vocab.csv')
-
+    def load(self, path):
         with open(path, 'r') as f:
             content = f.read().strip()
         words = content.split('\n')
@@ -51,15 +48,15 @@ class Vocab():
     def __len__(self):
         return len(self.words)
 
+    def __str__(self):
+        return str(self.words)
 
-vocab = Vocab()
 
-
-def create_samples(data_dir, style, typ):
-    path = os.path.join(data_dir, 'annotations', '{}.csv'.format(typ))
+def create_samples(data_dir, style, part):
+    path = os.path.join(data_dir, 'annotations', '{}.csv'.format(part))
     df = pd.read_csv(path, names=['id', 'annotation'])
 
-    image_path = os.path.join(data_dir, 'features', style, typ, '{}.png')
+    image_path = os.path.join(data_dir, 'features', style, part, '{}.png')
     df['image'] = df['id'].apply(image_path.format)
 
     assert all(df['image'].apply(os.path.exists))  # assert existence
@@ -71,10 +68,10 @@ def create_samples(data_dir, style, typ):
 
 
 class MathDataset(Dataset):
-    def __init__(self, data_dir, style, typ, transform):
-        vocab.load(data_dir)
+    def __init__(self, data_dir, style, part, transform, vocab):
         self.transform = transform
-        self.samples = create_samples(data_dir, style, typ)
+        self.vocab = vocab
+        self.samples = create_samples(data_dir, style, part)
 
     @staticmethod
     def load_pil(path):
@@ -89,7 +86,7 @@ class MathDataset(Dataset):
 
     def process_annotation(self, annotation):
         annotation = '<s> {} </s>'.format(annotation).split(' ')
-        annotation = list(map(vocab.word2index, annotation))
+        annotation = list(map(self.vocab.word2index, annotation))
         annotation = torch.tensor(annotation)
         return annotation
 
@@ -105,32 +102,25 @@ class MathDataset(Dataset):
     def __len__(self):
         return len(self.samples)
 
-    @staticmethod
-    def collate_fn(batch):
-        image = [sample['image'] for sample in batch]
-        annotation = [sample['annotation'] for sample in batch]
-        len_ = [sample['len'] for sample in batch]
-        id_ = [sample['id'] for sample in batch]
+    def get_collate_fn(self):
+        pad_ix = self.vocab.word2index('<pad>')
 
-        ret = {}
-        pad_ix = vocab.word2index('<pad>')
-        ret['image'] = torch.stack(image)
-        ret['annotation'] = pad_sequence(annotation, False, pad_ix)
-        ret['len'] = torch.tensor(len_)
-        ret['id'] = id_
+        def collate_fn(batch):
+            image = [sample['image'] for sample in batch]
+            annotation = [sample['annotation'] for sample in batch]
+            len_ = [sample['len'] for sample in batch]
+            id_ = [sample['id'] for sample in batch]
 
-        return ret
+            ret = {}
 
+            ret['image'] = torch.stack(image)
+            ret['annotation'] = pad_sequence(annotation, False, pad_ix)
+            ret['len'] = torch.tensor(len_)
+            ret['id'] = id_
 
-def main():
-    dataset = MathDataset('data/crohme', 'train',
-                          transforms.ToTensor(), written=False)
-    print('vocab len', len(vocab))
-    dl = DataLoader(dataset, batch_size=8, shuffle=False,
-                    collate_fn=MathDataset.collate_fn)
-    for sample in dl:
-        print({k: v.shape for k, v in sample.items() if hasattr(v, 'shape')})
-        break
+            return ret
+
+        return collate_fn
 
 
 if __name__ == "__main__":

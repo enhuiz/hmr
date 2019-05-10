@@ -21,15 +21,16 @@ from torch.utils.data import DataLoader, ConcatDataset, Subset
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr import networks
-from hmr.data import vocab, MathDataset
+from hmr.data import Vocab, MathDataset
 from utils import get_config, calculate_scores, denormalize
 
 
 def get_opts():
     parser = argparse.ArgumentParser()
     parser.add_argument('config', type=str)
-    args = parser.parse_args()
-    return get_config(args.config)
+    opts = parser.parse_args()
+    opts = get_config(opts.config)
+    return opts
 
 
 def write_sentences(path, sentences):
@@ -48,7 +49,9 @@ def evaluate(model, dl, opts):
         lens = sample['len'].to(opts.device)
 
         with torch.no_grad():
-            out = model.decode(images)
+            out = model.decode(images,
+                               opts.vocab.word2index('</s>'),
+                               opts.max_output_len)
 
         outputs = out['outputs']
 
@@ -58,8 +61,8 @@ def evaluate(model, dl, opts):
             hyps.append(prediction.tolist())
             refs.append(annotation.tolist())
 
-    refs = [vocab.decode(ref) for ref in refs]
-    hyps = [vocab.decode(hyp) for hyp in hyps]
+    refs = [opts.vocab.decode(ref) for ref in refs]
+    hyps = [opts.vocab.decode(hyp) for hyp in hyps]
 
     scores = calculate_scores(refs, hyps)
 
@@ -82,12 +85,12 @@ def create_transform(opts):
     ])
 
 
-def load_dataloader(opts, style):
-    ds = MathDataset(opts.data_dir, style, 'dev',
-                     create_transform(opts))
+def create_dataloader(opts, style, part):
+    ds = MathDataset(opts.data_dir, style, part,
+                     create_transform(opts), opts.vocab)
 
     dl = DataLoader(ds, batch_size=opts.batch_size,
-                    shuffle=True, collate_fn=MathDataset.collate_fn)
+                    shuffle=True, collate_fn=ds.get_collate_fn())
 
     return dl
 
@@ -100,19 +103,20 @@ def main():
     opts = get_opts()
     print(opts)
 
-    ckpts = glob.glob(os.path.join('ckpt', opts.name, '*.pth'))
-    ckpt = sorted(ckpts, key=extract_epoch_num)[-1]
-    model = torch.load(ckpt, map_location='cpu')
+    opts.vocab = Vocab(opts.vocab)
+
+    model = torch.load(opts.ckpt, map_location='cpu')
     model = model.to(opts.device)
 
-    print('{} loaded.'.format(ckpt))
+    print('{} loaded.'.format(opts.ckpt))
 
     name = opts.name
-    for style in ['printed', 'written', 'fake_printed', 'fake_written']:
-        print('Evaluating {} ...'.format(style))
-        dl = load_dataloader(opts, style)
-        opts.name = '{}/{}'.format(name,  style)
-        evaluate(model, dl, opts)
+    for style in opts.styles:
+        for part in opts.parts:
+            print('Evaluating {} ...'.format(style))
+            dl = create_dataloader(opts, style, part)
+            opts.name = '{}/{}/{}'.format(name,  style, part)
+            evaluate(model, dl, opts)
 
 
 if __name__ == "__main__":

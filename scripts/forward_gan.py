@@ -22,7 +22,7 @@ from PIL import Image
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from hmr.data import MathDataset
+from hmr.data import MathDataset, Vocab
 from hmr.networks import cyclegan
 
 
@@ -30,7 +30,7 @@ def get_opts():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', type=str)
     parser.add_argument('--out-dir', type=str)
-    parser.add_argument('--type', type=str, default='dev')
+    parser.add_argument('--part', type=str, default='dev')
     parser.add_argument('--model')
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--batch-size', type=int, default=4)
@@ -64,8 +64,8 @@ def forward(model, wdl, pdl, opts):
     model = model.eval()
     pbar = tqdm.tqdm(zip(wdl, pdl), total=len(wdl))
 
-    fpdir = os.path.join(opts.out_dir, 'fake_printed', opts.type)
-    fwdir = os.path.join(opts.out_dir, 'fake_written', opts.type)
+    fpdir = os.path.join(opts.out_dir, 'fake_printed', opts.part)
+    fwdir = os.path.join(opts.out_dir, 'fake_written', opts.part)
     os.makedirs(fpdir, exist_ok=True)
     os.makedirs(fwdir, exist_ok=True)
 
@@ -92,24 +92,25 @@ def create_transform(opts):
 def main():
     opts = get_opts()
     print(opts)
+    opts.vocab = Vocab(os.path.join(opts.data_dir, 'annotations', 'vocab.csv'))
 
     model = load_model(opts)
     model = model.to(opts.device)
 
-    wds = MathDataset(opts.data_dir, 'written', opts.type,
-                      create_transform(opts))
+    wds = MathDataset(opts.data_dir, 'written', opts.part,
+                      create_transform(opts), opts.vocab)
 
     wdl = DataLoader(wds,
                      batch_size=opts.batch_size,
-                     collate_fn=MathDataset.collate_fn,
+                     collate_fn=wds.get_collate_fn(),
                      shuffle=False)
 
-    pds = MathDataset(opts.data_dir, 'printed', opts.type,
-                      create_transform(opts))
+    pds = MathDataset(opts.data_dir, 'printed', opts.part,
+                      create_transform(opts), opts.vocab)
 
     pdl = DataLoader(pds,
                      batch_size=opts.batch_size,
-                     collate_fn=MathDataset.collate_fn,
+                     collate_fn=pds.get_collate_fn(),
                      shuffle=False)
 
     forward(model, wdl, pdl, opts)

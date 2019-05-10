@@ -12,26 +12,25 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, ConcatDataset, Subset
 import matplotlib.pyplot as plt
-import tqdm
-from torchvision.utils import make_grid
 from tensorboardX import SummaryWriter
-from nltk.metrics import edit_distance
-from nltk.translate.bleu_score import sentence_bleu
 from torchvision import transforms
+from torchsummary import summary
+import tqdm
 import matplotlib.pyplot as plt
+
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from hmr import networks
-from hmr.data import vocab, MathDataset
+from hmr.data import Vocab, MathDataset
 from utils import get_config, get_epoch_num, denormalize, add_mask, calculate_scores, adjust_lr
 
 
 def get_opts():
     parser = argparse.ArgumentParser()
     parser.add_argument('config', type=str)
-    args = parser.parse_args()
-    return get_config(args.config)
+    opts = parser.parse_args()
+    return get_config(opts.config)
 
 
 def visualize(model, sample, writer, iterations, opts):
@@ -41,7 +40,9 @@ def visualize(model, sample, writer, iterations, opts):
 
     model.eval()
     with torch.no_grad():
-        out = model.decode(images)
+        out = model.decode(images,
+                           opts.vocab.word2index('</s>'),
+                           opts.max_output_len)
     model.train()
 
     outputs = out['outputs'][0]
@@ -50,8 +51,8 @@ def visualize(model, sample, writer, iterations, opts):
     prediction = predictions.squeeze(1).tolist()
     annotation = annotations.squeeze(1).tolist()
 
-    hyp = vocab.decode(prediction)
-    ref = vocab.decode(annotation)
+    hyp = opts.vocab.decode(prediction)
+    ref = opts.vocab.decode(annotation)
 
     content = 'Ref: {}; Hyp: {}'.format(' '.join(ref), ' '.join(hyp))
     writer.add_text('sentence', content, iterations)
@@ -142,11 +143,12 @@ def create_transform(opts):
 
 
 def load_dataloader(opts):
+    # only train on printed-train data
     ds = MathDataset(opts.data_dir, 'printed', 'train',
-                     create_transform(opts))
+                     create_transform(opts), opts.vocab)
 
     dl = DataLoader(ds, batch_size=opts.batch_size,
-                    shuffle=True, collate_fn=MathDataset.collate_fn)
+                    shuffle=True, collate_fn=ds.get_collate_fn())
 
     return dl
 
@@ -155,14 +157,23 @@ def main():
     opts = get_opts()
     print(opts)
 
+    # the vocab of training should be consistent with the training data
+    opts.vocab = Vocab(os.path.join(opts.data_dir, 'annotations', 'vocab.csv'))
+
     dl = load_dataloader(opts)
 
     model, epoch0 = load_model(opts)
-    model = model.to(opts.device)
     opts.epoch0 = epoch0
-    optimizer = torch.optim.Adam(model.parameters(), opts.lr, [
-                                 opts.beta1, opts.beta2])
 
+    if hasattr(opts, 'fine_tune') and opts.fine_tune and epoch0 == 0:
+        model.decoder.update_output_dim(len(opts.vocab))
+        optimizer = torch.optim.Adam(model.decoder.get_fine_tune_params(), opts.lr, [
+            opts.beta1, opts.beta2])
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), opts.lr, [
+            opts.beta1, opts.beta2])
+
+    model = model.to(opts.device)
     train(model, optimizer, dl, opts)
 
 

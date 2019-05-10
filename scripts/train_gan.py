@@ -19,7 +19,7 @@ from tensorboardX import SummaryWriter
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from hmr.data import MathDataset
+from hmr.data import MathDataset, Vocab
 from hmr import networks
 
 from utils import *
@@ -122,20 +122,20 @@ def create_transform(opts):
 
 def load_dataloaders(opts):
     wds = MathDataset(opts.data_dir, 'written', 'train',
-                      create_transform(opts))
+                      create_transform(opts), opts.vocab)
 
     pds = MathDataset(opts.data_dir, 'printed', 'train',
-                      create_transform(opts))
+                      create_transform(opts), opts.vocab)
 
     wdl = DataLoader(wds,
                      batch_size=opts.batch_size,
                      shuffle=not opts.paired,
-                     collate_fn=MathDataset.collate_fn)
+                     collate_fn=wds.get_collate_fn())
 
     pdl = DataLoader(pds,
                      batch_size=opts.batch_size,
                      shuffle=not opts.paired,
-                     collate_fn=MathDataset.collate_fn)
+                     collate_fn=pds.get_collate_fn())
 
     return wdl, pdl
 
@@ -143,6 +143,7 @@ def load_dataloaders(opts):
 def main():
     opts = get_opts()
     print(opts)
+    opts.vocab = Vocab(os.path.join(opts.data_dir, 'annotations', 'vocab.csv'))
 
     model, epoch0 = load_model(opts)
     model = model.to(opts.device)
