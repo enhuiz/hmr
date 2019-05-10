@@ -24,7 +24,7 @@ This is for the data preprocessing. If you already have the dataset like the fol
            └── train
 ```
 
-1. Install [nodejs](https://nodejs.org/en/) and [npmjs](https://www.npmjs.com/), and then run `npm install` under the project root. 
+1. Install [nodejs](https://nodejs.org/en/) and [npmjs](https://www.npmjs.com/), and then run `npm install` under the project root.
 
 ```
 $ sudo apt install nodejs npm
@@ -51,17 +51,67 @@ $ scripts/data/create_im2latex.py data/im2latex
 
 ### 2. Train Style Transfers
 
-Train style transfers on mnist or crohme.
+Train style transfers on mnist and then crohme. Note that crohme should be trained after mnist since it needs the mnist pre-trained model.
 
 ```
-python3 train_gan.py config/cyclegan/mnist.yml
+$ python3 scripts/train_gan.py config/cyclegan/train/mnist.yml
+$ python3 scripts/train_gan.py config/cyclegan/train/crohme.yml
 ```
 
 ### 3. Train Seq2seq Model
- 
 
-Train seq2seq on crohme or im2latex.
+Train seq2seq on crohme.
 
 ```
-python3 train_gan.py config/seq2seq/crohme.yml
+$ python3 scripts/train_seq2seq.py config/seq2seq/train/crohme.yml
+```
+
+Train seq2seq on im2latex.
+
+```
+$ python3 scripts/train_seq2seq.py config/seq2seq/train/im2latex.yml
+```
+
+Fine-tune seq2seq on crohme based on the im2latex pre-trained model.
+
+```
+$ python3 scripts/train_seq2seq.py config/seq2seq/train/fine_tune.yml
+```
+
+### 4. Evaluation
+
+Generate fake printed and fake written data based on the cyclegan model.
+
+```
+$ python3 scripts/forward_gan.py config/cyclegan/forward/crohme.yml
+```
+
+Evaluate seq2seq trained on crohme.
+
+```
+$ python3 scripts/eval_seq2seq.py config/seq2seq/eval/crohme.yml
+```
+
+Evaluate seq2seq trained on im2latex using im2latex test set.
+
+```
+$ python3 scripts/eval_seq2seq.py config/seq2seq/eval/im2latex.yml
+```
+
+Evaluate seq2seq trained on im2latex using crohme test set.
+
+```
+$ python3 scripts/eval_seq2seq.py config/seq2seq/eval/im2latex_crohme.yml
+```
+
+Evaluate fine-tuned model.
+
+```
+$ python3 scripts/eval_seq2seq.py config/seq2seq/eval/fine_tune.yml
+```
+
+### 5. Enjoy the Demo
+
+```
+$ python3 demo/server.py ckpt/cyclegan/crohme/xxx.pth  ckpt/seq2seq/fine_tune/xxx.pth data/crohme/annotations/vocab.csv
 ```
