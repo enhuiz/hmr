@@ -1,12 +1,15 @@
 import os
 import argparse
+import sys
 
 from PIL import Image
 from flask import Flask, request, render_template, jsonify
 import torch
 
-from utils import Demonstrator
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+from hmr.data import Vocab
+from utils import Demonstrator
 
 file_dir = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder=os.path.join(file_dir, 'template'))
@@ -18,9 +21,9 @@ def get_opts():
     parser = argparse.ArgumentParser()
     parser.add_argument('cyclegan')
     parser.add_argument('seq2seq')
-    parser.add_argument('--data-dir', default='data/crohme',
-                        help='needed to create vocab.')
+    parser.add_argument('vocab', default='data/im2latex/annotations/vocab.csv')
     parser.add_argument('--base-size', nargs=2, default=[300, 300])
+    parser.add_argument('--max-output-len', default=100)
     parser.add_argument('--mean', nargs='+', default=[0.5])
     parser.add_argument('--port', default=8080)
     opts = parser.parse_args()
@@ -40,6 +43,8 @@ def upload():
 def main():
     global demonstrator
     opts = get_opts()
+    opts.vocab = Vocab(opts.vocab)
+
     demonstrator = Demonstrator(opts)
     app.run(host='0.0.0.0', port=opts.port)
 
