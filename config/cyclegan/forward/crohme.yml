@@ -1,0 +1,16 @@
+# meta
+name: cyclegan/crohme
+out_dir: data/crohme/features/
+
+# model
+model: ckpt/cyclegan/crohme/80.pth
+
+# data
+data_dir: data/crohme
+parts: ["dev"]
+base_size: [300, 300]
+
+# train
+device: cuda
+batch_size: 8
+mean: [0.5]

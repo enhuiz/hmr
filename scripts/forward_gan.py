@@ -25,19 +25,14 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from hmr.data import MathDataset, Vocab
 from hmr.networks import cyclegan
 
+from utils import get_config
+
 
 def get_opts():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-dir', type=str)
-    parser.add_argument('--out-dir', type=str)
-    parser.add_argument('--part', type=str, default='dev')
-    parser.add_argument('--model')
-    parser.add_argument('--device', default='cuda')
-    parser.add_argument('--batch-size', type=int, default=4)
-    parser.add_argument('--mean', type=float, nargs=1, default=[0.5])
-    parser.add_argument('--base-size', type=int, nargs=2, default=[300, 300])
-    opts = parser.parse_args()
-    return opts
+    parser.add_argument('config', type=str)
+    args = parser.parse_args()
+    return get_config(args.config)
 
 
 def flatten_dict(d):
@@ -72,7 +67,7 @@ def forward(model, wdl, pdl, opts):
     for ws, ps in pbar:
         with torch.no_grad():
             forward_once(ws, model.G_XtoY, fpdir, opts)
-            # forward_once(ps, model.G_YtoX, fwdir, opts)
+            forward_once(ps, model.G_YtoX, fwdir, opts)
 
 
 def load_model(opts):
@@ -97,23 +92,26 @@ def main():
     model = load_model(opts)
     model = model.to(opts.device)
 
-    wds = MathDataset(opts.data_dir, 'written', opts.part,
-                      create_transform(opts), opts.vocab)
+    for part in opts.parts:
+        opts.part = part
 
-    wdl = DataLoader(wds,
-                     batch_size=opts.batch_size,
-                     collate_fn=wds.get_collate_fn(),
-                     shuffle=False)
+        wds = MathDataset(opts.data_dir, 'written', opts.part,
+                          create_transform(opts), opts.vocab)
 
-    pds = MathDataset(opts.data_dir, 'printed', opts.part,
-                      create_transform(opts), opts.vocab)
+        wdl = DataLoader(wds,
+                         batch_size=opts.batch_size,
+                         collate_fn=wds.get_collate_fn(),
+                         shuffle=False)
 
-    pdl = DataLoader(pds,
-                     batch_size=opts.batch_size,
-                     collate_fn=pds.get_collate_fn(),
-                     shuffle=False)
+        pds = MathDataset(opts.data_dir, 'printed', opts.part,
+                          create_transform(opts), opts.vocab)
 
-    forward(model, wdl, pdl, opts)
+        pdl = DataLoader(pds,
+                         batch_size=opts.batch_size,
+                         collate_fn=pds.get_collate_fn(),
+                         shuffle=False)
+
+        forward(model, wdl, pdl, opts)
 
 
 if __name__ == "__main__":
