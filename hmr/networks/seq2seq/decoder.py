@@ -3,6 +3,7 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from hmr.data import vocab
 
 
 class MultiHeadAttn(nn.Module):
@@ -59,14 +60,6 @@ class MultiHeadAttnRNN(nn.Module):
         self.gru = nn.GRU(self.input_dim, self.hidden_dim)
         self.fc = nn.Linear(self.hidden_dim, self.output_dim)
 
-    def update_output_dim(self, output_dim):
-        self.output_dim = output_dim
-        self.embedding = nn.Embedding(output_dim, self.hidden_dim)
-        self.fc = nn.Linear(self.hidden_dim, output_dim)
-
-    def get_fine_tune_params(self):
-        return list(self.embedding.parameters()) + list(self.fc.parameters())
-
     @staticmethod
     def assert_sorted(l, descending=False):
         l = list(l)
@@ -119,7 +112,7 @@ class MultiHeadAttnRNN(nn.Module):
 
         return outputs, hiddens, scores
 
-    def decode(self, memory, eos, max_output_len):
+    def decode(self, memory, max_output_len):
         """
         Args:
             memory, (memory_len, 1, input_dim)
@@ -150,7 +143,7 @@ class MultiHeadAttnRNN(nn.Module):
             scores[i:i + 1] = score.mean(dim=2)
 
             cur_word = output.argmax(dim=2).squeeze()
-            if cur_word == eos:
+            if cur_word == vocab.word2index('</s>'):
                 outputs = outputs[:i + 1]
                 hiddens = hiddens[:i + 1]
                 scores = scores[:i + 1]
