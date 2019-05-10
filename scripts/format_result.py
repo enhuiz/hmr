@@ -21,12 +21,12 @@ def get_annotation_writer(src_dir):
 
     def annotation_writer(out_dir):
         for path in glob.glob(src_dir + '/tok_*.csv'):
-            typ = path.split('tok_')[-1].split('.csv')[0]
-            typ = 'val' if typ == 'dev' else typ
+            part = path.split('tok_')[-1].split('.csv')[0]
+            part = 'val' if part == 'dev' else part
             formulas_path = os.path.join(
-                out_dir, '{}.formulas.norm.txt'.format(typ))
+                out_dir, '{}.formulas.norm.txt'.format(part))
             matching_path = os.path.join(
-                out_dir, '{}.matching.txt'.format(typ))
+                out_dir, '{}.matching.txt'.format(part))
             try:
                 df = pd.read_csv(path, header=None, names=['image', 'formula'])
                 df['index'] = df.index
@@ -51,10 +51,10 @@ def main():
         mode = os.path.basename(img_dir)
         out_dir = os.path.join(opts.out_dir, mode)
         os.makedirs(out_dir, exist_ok=True)
-        for typ in os.listdir(img_dir):
-            mapped_typ = 'images_val' if typ == 'dev' else 'images_{}'.format(
-                typ)
-            os.system('cp -r {} {}'.format(os.path.join(img_dir, typ),
+        for part in os.listdir(img_dir):
+            mapped_typ = 'images_val' if part == 'dev' else 'images_{}'.format(
+                part)
+            os.system('cp -r {} {}'.format(os.path.join(img_dir, part),
                                            os.path.join(out_dir, mapped_typ)))
         aw(out_dir)
 

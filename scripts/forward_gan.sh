@@ -2,11 +2,11 @@
 
 model=$1
 
-for typ in dev; do
+for part in dev; do
     python3 -u scripts/forward_gan.py \
         --data-dir data/crohme \
         --model $model \
-        --type $typ \
+        --part $part \
         --out-dir data/crohme/features/ \
         --device cuda
 done
