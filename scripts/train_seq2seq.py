@@ -59,7 +59,7 @@ def visualize(model, sample, writer, iterations, opts):
     print(calculate_scores([ref], [hyp]))
     print(content)
 
-    image = denormalize(images[0], opts).cpu()
+    image = denormalize(images[0]).cpu()
     writer.add_image('image', image, iterations)
 
     weights = out['weights'][0][:, 0]
