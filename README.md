@@ -115,3 +115,19 @@ $ python3 scripts/eval_seq2seq.py config/seq2seq/eval/fine_tune.yml
 ```
 $ python3 demo/server.py ckpt/cyclegan/crohme/xxx.pth  ckpt/seq2seq/fine_tune/xxx.pth data/crohme/annotations/vocab.csv
 ```
+
+### Results
+
+#### CycleGAN
+
+|          Ground truth printed          |          Groud truth written           |                Fake printed                 |                Fake written                 |
+| :------------------------------------: | :------------------------------------: | :-----------------------------------------: | :-----------------------------------------: |
+| ![](fig/cyclegan/printed/18_em_0.png)  | ![](fig/cyclegan/written/18_em_0.png)  | ![](fig/cyclegan/fake_printed/18_em_0.png)  | ![](fig/cyclegan/fake_written/18_em_0.png)  |
+| ![](fig/cyclegan/printed/18_em_10.png) | ![](fig/cyclegan/written/18_em_10.png) | ![](fig/cyclegan/fake_printed/18_em_10.png) | ![](fig/cyclegan/fake_written/18_em_10.png) |
+| ![](fig/cyclegan/printed/18_em_11.png) | ![](fig/cyclegan/written/18_em_11.png) | ![](fig/cyclegan/fake_printed/18_em_11.png) | ![](fig/cyclegan/fake_written/18_em_11.png) |
+| ![](fig/cyclegan/printed/18_em_12.png) | ![](fig/cyclegan/written/18_em_12.png) | ![](fig/cyclegan/fake_printed/18_em_12.png) | ![](fig/cyclegan/fake_written/18_em_12.png) |
+| ![](fig/cyclegan/printed/18_em_13.png) | ![](fig/cyclegan/written/18_em_13.png) | ![](fig/cyclegan/fake_printed/18_em_13.png) | ![](fig/cyclegan/fake_written/18_em_13.png) |
+
+#### MHA-CNN-RNN
+
+![](fig/seq2seq/real_decoded.gif)
