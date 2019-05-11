@@ -130,4 +130,4 @@ $ python3 demo/server.py ckpt/cyclegan/crohme/xxx.pth  ckpt/seq2seq/fine_tune/xx
 
 #### MHA-CNN-RNN
 
-![](fig/seq2seq/real_decoded.gif)
+<center> ![](fig/seq2seq/real_decoded.gif) </center>

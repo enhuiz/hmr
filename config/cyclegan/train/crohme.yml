@@ -1,6 +1,6 @@
 # meta
 name: cyclegan/crohme
-model: ckpt/cyclegan/mnist/5.pth
+model: ckpt/cyclegan/mnist/5.pth # set to cyclegan to train from scratch 
 base_size: [300, 300]
 crop_size: [224, 224]
 
@@ -24,6 +24,6 @@ continued: true
 sample_every: 20
 display_size: 6
 
-# model (determined by mnist.yml, should be the same with it)
+# model (determined by mnist.yml, should be the same with it), uncomment to train from scratch
 # g_conv_dim: 32
 # d_conv_dim: 32
