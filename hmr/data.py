@@ -61,6 +61,7 @@ def create_samples(data_dir, style, part):
 
     assert all(df['image'].apply(os.path.exists))  # assert existence
 
+    df['annotation'] = df['annotation'].astype(str)
     df['annotation'] = df['annotation'].str.strip()
     samples = df[['id', 'image', 'annotation']].to_dict('record')
 

@@ -6,6 +6,7 @@ crop_size: [60, 60]
 
 # data
 data_dir: data/mnist
+paired: false
 
 # train
 device: cuda
