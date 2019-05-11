@@ -4,7 +4,7 @@
 
 ### 1. Preprocessing
 
-This is for the data preprocessing. If you already have the dataset like the following, you can skip it.
+This is for the data preprocessing. If you have already [downloaded](https://drive.google.com/open?id=1zlsVRFXSdPhcjKEIKvTNShcTpTUe_VAe) the dataset like the following, just skip it.
 
 ```
 ── {dataset-name}       <- dataset name e.g. mnist, crohme or im2latex
